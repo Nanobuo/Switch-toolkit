@@ -78,14 +78,16 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
+          name: SwitchToolkit-windows
           path: artifacts
 
       - name: Prepare release files
         # Stable names: the in-app updater looks for SwitchToolkit-windows-x64.exe.
         run: |
           mkdir release
-          cp artifacts/SwitchToolkit-windows/SwitchToolkit.exe release/SwitchToolkit-windows-x64.exe
-          cp artifacts/SwitchToolkit-windows/switchtk-cli.exe release/switchtk-cli-windows-x64.exe
+          ls -laR artifacts
+          cp artifacts/SwitchToolkit.exe release/SwitchToolkit-windows-x64.exe
+          cp artifacts/switchtk-cli.exe release/switchtk-cli-windows-x64.exe
           ls -la release
 
       - name: Release notes from CHANGELOG.md
