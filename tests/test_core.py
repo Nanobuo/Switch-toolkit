@@ -36,7 +36,7 @@ class Core(unittest.TestCase):
         cls.new_rom["data/a.bin"] = os.urandom(70_000)
         cls.new_rom["new/b.txt"] = b"nuovo"
         files, _ = fk.build_title(cls.raw_keys, "update", TID | 0x800, 131072, name="Gioco Prova",
-                                  display_version="1.0.2",
+                                  display_version="1.0.2", compressed_nacp=True,
                                   exefs={"main": b"MAIN-v2", "main.npdm": b"META",
                                          "subsdk0": b"SDK"},
                                   romfs=cls.new_rom, base_romfs_section=info["romfs_section"])
@@ -75,6 +75,8 @@ class Core(unittest.TestCase):
         self.assertEqual(list(games), [TID])
         g = games[TID]
         self.assertEqual(g.latest_update.version, 131072)
+        self.assertEqual(g.latest_update.name, "Gioco Prova")  # compressed NACP titles
+        self.assertEqual(g.name, "Gioco Prova")
         self.assertEqual(len(g.dlcs), 1)
         self.assertEqual([t.kind for t in g.merged()], ["game", "update", "dlc"])
         self.assertEqual(len(g.warnings()), 1)  # two updates: only the latest is used
@@ -230,6 +232,18 @@ class Core(unittest.TestCase):
 def crypto_sha(data):
     import hashlib
     return hashlib.sha256(data).digest()
+
+
+class Nacp(unittest.TestCase):
+    def test_plain_and_compressed_titles(self):
+        from switchtk.meta import parse_nacp
+        for compressed in (False, True):
+            nacp = parse_nacp(fk.build_nacp("Città è", "2.0", compressed))
+            self.assertEqual((nacp.name(), nacp.publisher(), nacp.display_version),
+                             ("Città è", "Tests", "2.0"))
+        broken = bytearray(fk.build_nacp("x", "1.0", True))
+        broken[2:20] = b"\xff" * 18
+        self.assertEqual(parse_nacp(bytes(broken)).name(), "")  # no garbage, no crash
 
 
 class Keys(unittest.TestCase):

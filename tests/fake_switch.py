@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import os
 import struct
+import zlib
 
 from switchtk import crypto
 from switchtk.fs import build_partition
@@ -260,11 +261,21 @@ def build_cnmt(title_id: int, version: int, mtype: int, contents: list[tuple[str
     return head + ext + recs + bytes(0x20)
 
 
-def build_nacp(name: str, version: str) -> bytes:
-    nacp = bytearray(0x4000)
+def build_nacp(name: str, version: str, compressed: bool = False) -> bytes:
+    """compressed: titles packed as in newer games (u16 size + raw Deflate of 32 entries,
+    flag at 0x3215)."""
+    titles = bytearray(0x300 * (32 if compressed else 16))
     for lang in (0, 7):
-        nacp[lang * 0x300:lang * 0x300 + len(name.encode())] = name.encode()
-        nacp[lang * 0x300 + 0x200:lang * 0x300 + 0x205] = b"Tests"
+        titles[lang * 0x300:lang * 0x300 + len(name.encode())] = name.encode()
+        titles[lang * 0x300 + 0x200:lang * 0x300 + 0x205] = b"Tests"
+    nacp = bytearray(0x4000)
+    if compressed:
+        c = zlib.compressobj(9, zlib.DEFLATED, -15)
+        packed = c.compress(bytes(titles)) + c.flush()
+        nacp[0:2 + len(packed)] = struct.pack("<H", len(packed)) + packed
+        nacp[0x3215] = 1
+    else:
+        nacp[0:0x3000] = titles
     nacp[0x3060:0x3060 + len(version)] = version.encode()
     return bytes(nacp)
 
@@ -286,7 +297,8 @@ LAST_TITLE_KEYS: dict[bytes, bytes] = {}  # rights id -> plain title key, for th
 
 
 def build_title(keys: dict, kind: str, title_id: int, version: int, *, name: str = "",
-                display_version: str = "", exefs: dict | None = None,
+                display_version: str = "", compressed_nacp: bool = False,
+                exefs: dict | None = None,
                 romfs: dict | None = None, base_romfs_section: bytes | None = None,
                 ticket: bool = True) -> tuple[dict[str, bytes], dict]:
     """Files of an NSP for one title: NCAs (+ ticket). Returns (files, info).
@@ -309,7 +321,7 @@ def build_title(keys: dict, kind: str, title_id: int, version: int, *, name: str
             data = build_nca(keys, title_id, 0, [(1, exefs_img), (0, romfs_img)], title_key)
             info["romfs_section"] = section_plain(romfs_img)
         contents.append((nca_id(data), data, 1))
-        control = build_romfs({"control.nacp": build_nacp(name, display_version),
+        control = build_romfs({"control.nacp": build_nacp(name, display_version, compressed_nacp),
                                "icon_AmericanEnglish.dat": ICON_JPEG})
         cdata = build_nca(keys, title_id, 2, [(0, control)], title_key)
         contents.append((nca_id(cdata), cdata, 3))

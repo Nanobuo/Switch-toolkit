@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import struct
+import zlib
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -102,10 +103,31 @@ class Nacp:
         return next((p for _n, p in self.titles.values() if p), "")
 
 
+TITLE_ENTRY = 0x300
+TITLE_AREA = 0x3000
+TITLE_FORMAT = 0x3215     # 0: 16 plain entries; otherwise a compressed block (newer games)
+MAX_LANGUAGES = 32
+
+
+def _title_entries(data: bytes) -> bytes:
+    """The ApplicationTitle entries, decompressing them when the NACP stores them packed:
+    u16 size followed by raw Deflate data, up to 32 entries of 0x300 bytes."""
+    if len(data) <= TITLE_FORMAT or not data[TITLE_FORMAT]:
+        return data[:TITLE_AREA]
+    size = struct.unpack_from("<H", data)[0]
+    if 2 + size > TITLE_AREA:
+        return b""
+    try:
+        return zlib.decompressobj(-15).decompress(data[2:2 + size], MAX_LANGUAGES * TITLE_ENTRY)
+    except zlib.error:
+        return b""
+
+
 def parse_nacp(data: bytes) -> Nacp:
     titles = {}
-    for lang in range(16):
-        raw = data[lang * 0x300:(lang + 1) * 0x300]
+    entries = _title_entries(data)
+    for lang in range(min(len(entries) // TITLE_ENTRY, MAX_LANGUAGES)):
+        raw = entries[lang * TITLE_ENTRY:(lang + 1) * TITLE_ENTRY]
         name = raw[:0x200].split(b"\x00", 1)[0].decode("utf-8", "replace").strip()
         pub = raw[0x200:0x300].split(b"\x00", 1)[0].decode("utf-8", "replace").strip()
         if name or pub:

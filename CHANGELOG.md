@@ -10,6 +10,8 @@ Prima di creare una release aggiungi qui una sezione `## vX.Y.Z`.
   venivano decifrate in modo sbagliato).
 - Se le tabelle di un aggiornamento sono illeggibili ora compare un messaggio
   chiaro invece di «Errore inatteso».
+- Corretto il nome del gioco illeggibile (simboli strani) con gli aggiornamenti
+  recenti, che salvano i nomi in forma compressa (fino a 32 lingue).
 
 ## v1.0.0
 
