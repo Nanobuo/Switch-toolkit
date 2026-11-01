@@ -3,6 +3,14 @@
 Ogni release pubblica come descrizione la sezione della propria versione.
 Prima di creare una release aggiungi qui una sezione `## vX.Y.Z`.
 
+## v1.0.1
+
+- Corretta l'estrazione con l'aggiornamento applicato, che si fermava subito
+  con l'errore «unpack_from requires a buffer…» (le tabelle dell'aggiornamento
+  venivano decifrate in modo sbagliato).
+- Se le tabelle di un aggiornamento sono illeggibili ora compare un messaggio
+  chiaro invece di «Errore inatteso».
+
 ## v1.0.0
 
 - Prima versione.

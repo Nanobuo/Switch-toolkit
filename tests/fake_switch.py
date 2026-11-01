@@ -202,8 +202,10 @@ def bktr_section(base_section: bytes, new_payload: bytes, block: int = 0x4000):
     rel_off = _align(len(patch), 0x10)
     rel_table = _bucket_tree(rel_bytes, len(virtual))
     sub_off = rel_off + len(rel_table)
-    subs = [(0, 0, 2), (half, 0, 5), (rel_off, 0, gen)]
-    sub_table = _bucket_tree([struct.pack("<QII", *s) for s in subs], sub_off + 0x8000)
+    # As in real updates: subsections (with their own counters) cover the patch data
+    # only; the two tables after it use the section's counter.
+    subs = [(0, 0, 2), (half, 0, 5)]
+    sub_table = _bucket_tree([struct.pack("<QII", *s) for s in subs], rel_off)
     plain = bytes(patch).ljust(rel_off, b"\0") + rel_table + sub_table
     plain = plain.ljust(_align(len(plain)), b"\0")
 
@@ -214,8 +216,9 @@ def bktr_section(base_section: bytes, new_payload: bytes, block: int = 0x4000):
 
     def encrypt(key, nca_offset, data):
         out = bytearray()
-        bounds = [s[0] for s in subs] + [len(data)]
-        for (start, _r, ctr), stop in zip(subs, bounds[1:]):
+        ranges = subs + [(rel_off, 0, gen)]
+        bounds = [s[0] for s in ranges] + [len(data)]
+        for (start, _r, ctr), stop in zip(ranges, bounds[1:]):
             up = upper[:4] + ctr.to_bytes(4, "big")
             out += crypto.ctr_crypt(key, up, nca_offset + start, data[start:stop])
         return bytes(out)

@@ -79,11 +79,13 @@ class CtrExStorage(Storage):
     """AES-CTR with a per-subsection counter (the patch section of an update)."""
 
     def __init__(self, raw: Storage, section: Section, key: bytes,
-                 subsections: list[tuple[int, int]]):
+                 subsections: list[tuple[int, int]], end: int):
+        """subsections: (offset, counter) covering [first offset, end); outside that range
+        (the BKTR tables at the end of the section) the section's own counter applies."""
         self.raw, self.base, self.size = raw, section.offset, section.size
         self.key, self.upper = key, section.upper_ctr
-        self.starts = [s for s, _ in subsections]
-        self.ctrs = [c for _, c in subsections]
+        self.starts = [s for s, _ in subsections] + [end]
+        self.ctrs = [self._upper(c) for _, c in subsections] + [self.upper]
 
     def _upper(self, ctr: int) -> bytes:
         return self.upper[:4] + ctr.to_bytes(4, "big")
@@ -94,7 +96,7 @@ class CtrExStorage(Storage):
         end = offset + size
         while offset < end:
             i = bisect.bisect_right(self.starts, offset) - 1
-            upper = self._upper(self.ctrs[i]) if i >= 0 else self.upper
+            upper = self.ctrs[i] if i >= 0 else self.upper
             stop = self.starts[i + 1] if i + 1 < len(self.starts) else end
             n = min(end, stop) - offset
             pos = self.base + offset
@@ -134,21 +136,26 @@ class IndirectStorage(Storage):
         return bytes(out)
 
 
-def _bucket_tree(data: bytes, entry_fmt: str) -> list[tuple]:
-    """Entries of a BKTR bucket tree: a 0x4000 header, then 0x4000-byte buckets."""
+def _bucket_tree(data: bytes, entry_fmt: str, name: str = "") -> tuple[list[tuple], int]:
+    """(entries, end offset) of a BKTR bucket tree: a 0x4000 header, then 0x4000-byte
+    buckets. Counts that do not fit mean wrong keys or a damaged file."""
     esize = struct.calcsize(entry_fmt)
+    bad = NcaError(tr("{name}: tabelle dell'aggiornamento illeggibili (chiavi errate o file "
+                      "danneggiato).", name=name))
     if len(data) < 0x10:
-        return []
-    _, buckets, _total = struct.unpack_from("<IIQ", data)
+        raise bad
+    _, buckets, total = struct.unpack_from("<IIQ", data)
+    if 0x4000 * (buckets + 1) > len(data):
+        raise bad
     out = []
     for b in range(buckets):
         base = 0x4000 * (b + 1)
-        if base + 0x10 > len(data):
-            break
         _, count, _end = struct.unpack_from("<IIQ", data, base)
+        if 0x10 + count * esize > 0x4000:
+            raise bad
         for i in range(count):
             out.append(struct.unpack_from(entry_fmt, data, base + 0x10 + i * esize))
-    return out
+    return out, total
 
 
 class Nca:
@@ -253,11 +260,10 @@ class Nca:
         sub_off, sub_size = struct.unpack_from("<QQ", s.header, 0x120)
         if s.header[0x110:0x114] != b"BKTR" or s.header[0x130:0x134] != b"BKTR":
             raise NcaError(tr("{name}: intestazione BKTR non valida.", name=self.name))
-        subs = [(o, c) for o, _r, c in _bucket_tree(plain.read(sub_off, sub_size), "<QII")]
-        patch = CtrExStorage(self.raw, s, key, subs)
-        rel_data = patch.read(rel_off, rel_size) if subs else plain.read(rel_off, rel_size)
-        entries = _bucket_tree(rel_data, "<QQI")
-        virt_size = struct.unpack_from("<Q", rel_data, 8)[0] if len(rel_data) >= 16 else 0
+        # Both tables are encrypted with the section's own counter, not the subsections'.
+        sub_entries, sub_end = _bucket_tree(plain.read(sub_off, sub_size), "<QII", self.name)
+        patch = CtrExStorage(self.raw, s, key, [(o, c) for o, _r, c in sub_entries], sub_end)
+        entries, virt_size = _bucket_tree(plain.read(rel_off, rel_size), "<QQI", self.name)
         return IndirectStorage(virt_size, [(v, p, src) for v, p, src in entries], [base, patch])
 
     def payload(self, s: Section, storage: Storage) -> Storage:

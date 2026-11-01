@@ -93,6 +93,8 @@ EN = {
     "{name}: mancano {n} NCA indicati nei metadati (file incompleto).":
         "{name}: {n} NCAs listed in the metadata are missing (incomplete file).",
     "Tabella di rilocazione dell'aggiornamento non valida.": "Invalid update relocation table.",
+    "{name}: tabelle dell'aggiornamento illeggibili (chiavi errate o file danneggiato).":
+        "{name}: unreadable update tables (wrong keys or damaged file).",
     "L'aggiornamento richiede il gioco base per ricostruire la RomFS: aggiungi anche il gioco "
     "base.":
         "The update needs the base game to rebuild the RomFS: add the base game as well.",

@@ -147,6 +147,15 @@ class Core(unittest.TestCase):
             with self.assertRaises(NcaError):
                 nca.romfs()  # needs the base game
 
+    def test_unreadable_update_tables(self):
+        from switchtk.nca import _bucket_tree
+        garbage = struct.pack("<IIQ", 0, 1, 0).ljust(0x4000, b"\0")
+        garbage += struct.pack("<IIQ", 0, 0x7FFFFFFF, 0).ljust(0x4000, b"\0")
+        with self.assertRaises(NcaError):
+            _bucket_tree(garbage, "<QQI", "x.nca")
+        with self.assertRaises(NcaError):
+            _bucket_tree(struct.pack("<IIQ", 0, 5, 0), "<QQI", "x.nca")
+
     def test_romfs_bin_and_options(self):
         games = titles.group_titles(self.load("base.nsp"))
         (job,) = jobs.extract_jobs(list(games.values()), self.p("bin"), exefs=False,
