@@ -2,14 +2,9 @@
 
 EN = {
     # -- command line --------------------------------------------------------------
-    "Coltellino svizzero per i file Nintendo Switch: NSP → XCI, unione di gioco, aggiornamenti "
-    "e DLC, estrazione di ExeFS e RomFS.":
-        "Swiss army knife for Nintendo Switch files: NSP → XCI, merging of game, updates and "
-        "DLC, ExeFS and RomFS extraction.",
     "file prod.keys (predefinito: cercato nelle cartelle abituali)":
         "prod.keys file (default: looked for in the usual folders)",
     "file title.keys facoltativo": "optional title.keys file",
-    "mostra i contenuti di file NSP/XCI": "show the contents of NSP/XCI files",
     "elenca anche gli NCA contenuti": "also list the NCAs inside",
     "converte in XCI, unendo gioco, aggiornamento e DLC dello stesso gioco":
         "convert to XCI, merging game, update and DLC of the same game",
@@ -26,8 +21,6 @@ EN = {
     "salva la RomFS come unico file romfs.bin": "save the RomFS as a single romfs.bin file",
     "estrai il gioco base senza applicare l'aggiornamento":
         "extract the base game without applying the update",
-    "verifica l'integrità (SHA-256) degli NCA di un NSP":
-        "check the integrity (SHA-256) of the NCAs of an NSP",
     "ATTENZIONE: {message}": "WARNING: {message}",
     "ERRORE: {message}": "ERROR: {message}",
     "Annullato.": "Cancelled.",
@@ -38,7 +31,6 @@ EN = {
     "non corrisponde più.":
         "Note: in XCIs made from an NSP the NCA headers are modified, so the digest no longer "
         "matches.",
-    "Nessun file NSP/XCI trovato.": "No NSP/XCI files found.",
 
     # -- keys ----------------------------------------------------------------------
     "File prod.keys non trovato. Ricavalo dalla tua console con Lockpick_RCM e indicalo nelle "
@@ -139,8 +131,6 @@ EN = {
     "Download non riuscito: {error}": "Download failed: {error}",
 
     # -- GUI: games page -----------------------------------------------------------
-    "Trascina qui i file NSP o XCI (gioco, aggiornamenti, DLC, in qualsiasi ordine) oppure":
-        "Drop NSP or XCI files here (game, updates, DLC, in any order) or",
     "Aggiungi file…": "Add files…",
     "Aggiungi cartella…": "Add folder…",
     "Rimuovi questo file": "Remove this file",
@@ -150,25 +140,15 @@ EN = {
     "Contenuti": "Contents",
     "Attenzione": "Warning",
     "I tuoi giochi": "Your games",
-    "Nessun file aggiunto. Aggiungi insieme gioco base, aggiornamenti e DLC: vengono "
-    "raggruppati per gioco. «Crea XCI» li unisce in un unico XCI (o converte un singolo NSP), "
-    "«Estrai» salva ExeFS e RomFS con l'aggiornamento già applicato.":
-        "No files added. Add base game, updates and DLC together: they are grouped by game. "
-        "\"Create XCI\" merges them into a single XCI (or converts a single NSP), \"Extract\" "
-        "saves ExeFS and RomFS with the update already applied.",
     "Cartella in cui salvare XCI ed estrazioni": "Folder where XCIs and extractions are saved",
     "Svuota": "Clear",
     "Estrai ExeFS/RomFS": "Extract ExeFS/RomFS",
     "Crea XCI": "Create XCI",
     "Nessun file": "No files",
-    "Nessun file NSP o XCI tra quelli scelti.": "No NSP or XCI files among the chosen ones.",
     "Chiavi mancanti": "Keys missing",
     "Alcuni file non sono stati aggiunti": "Some files were not added",
     "{games} giochi · {files} file · {size}": "{games} games · {files} files · {size}",
     "Scegli la cartella di destinazione…": "Choose the destination folder…",
-    "Seleziona i file NSP/XCI": "Select the NSP/XCI files",
-    "File Switch (*.nsp *.xci);;Tutti i file (*)": "Switch files (*.nsp *.xci);;All files (*)",
-    "Cartella con file NSP/XCI": "Folder with NSP/XCI files",
     "Cartella di destinazione": "Destination folder",
 
     # -- GUI: progress page --------------------------------------------------------
@@ -211,12 +191,6 @@ EN = {
     "title.keys (facoltativo)": "title.keys (optional)",
     "Cartelle": "Folders",
     "Scegli cartella": "Choose folder",
-    "Creazione XCI": "XCI creation",
-    "Unisci in un unico XCI": "Merge into a single XCI",
-    "Gioco base, ultimo aggiornamento e DLC dello stesso gioco in un solo file. Se disattivato "
-    "ogni NSP diventa un XCI separato.":
-        "Base game, latest update and DLC of the same game in one file. When off, every NSP "
-        "becomes a separate XCI.",
     "Includi l'aggiornamento": "Include the update",
     "Solo il più recente: gli aggiornamenti sono cumulativi.":
         "Only the latest: updates are cumulative.",
@@ -335,4 +309,70 @@ EN = {
         "Update installed. Restart Switch Toolkit by hand ({error}).",
     "Chiudi": "Close",
     "Riprova": "Retry",
+
+    # -- NUP -----------------------------------------------------------------------
+    "Coltellino svizzero per i file Nintendo Switch: NSP → XCI o NUP, unione di gioco, "
+    "aggiornamenti e DLC, estrazione di ExeFS e RomFS.":
+        "Swiss army knife for Nintendo Switch files: NSP → XCI or NUP, merging of game, updates "
+        "and DLC, ExeFS and RomFS extraction.",
+    "mostra i contenuti di file NSP/XCI/NUP": "show the contents of NSP/XCI/NUP files",
+    "verifica l'integrità (SHA-256) di NSP e NUP":
+        "check the integrity (SHA-256) of NSPs and NUPs",
+    "crea un NUP (file decifrati e compressi) con gioco, aggiornamento e DLC":
+        "create a NUP (decrypted, compressed files) with game, update and DLC",
+    "un NUP per ogni file, senza unire": "one NUP per file, without merging",
+    "livello di compressione zstd (predefinito 3)": "zstd compression level (default 3)",
+    "i file NUP non possono diventare XCI (contengono dati già decifrati, senza gli NCA): "
+    "vengono ignorati.":
+        "NUP files cannot become XCIs (they hold decrypted data, without the NCAs): skipped.",
+    "Nessun file NSP/XCI/NUP trovato.": "No NSP/XCI/NUP files found.",
+    "Manca il modulo zstandard, necessario per i file NUP.":
+        "The zstandard module, needed for NUP files, is missing.",
+    "{name}: file danneggiato nel NUP (impronta SHA-256 diversa).":
+        "{name}: damaged file in the NUP (SHA-256 differs).",
+    "{name}: file NUP non valido.": "{name}: invalid NUP file.",
+    "{name}: file NUP non valido ({why}).": "{name}: invalid NUP file ({why}).",
+    "{name}: versione del formato NUP non supportata ({version}).":
+        "{name}: unsupported NUP format version ({version}).",
+    "file troncato": "truncated file",
+    "indice danneggiato": "damaged index",
+    "{name}: compressione non supportata nel NUP.": "{name}: unsupported compression in the NUP.",
+    "{name}: il NUP non contiene giochi, aggiornamenti o DLC.":
+        "{name}: the NUP holds no game, update or DLC.",
+    "I NUP contengono i singoli file: estraggo la cartella romfs invece di romfs.bin.":
+        "NUPs hold the individual files: extracting the romfs folder instead of romfs.bin.",
+    "Trascina qui i file NSP, XCI o NUP (gioco, aggiornamenti, DLC, in qualsiasi ordine) oppure":
+        "Drop NSP, XCI or NUP files here (game, updates, DLC, in any order) or",
+    "Nessun file aggiunto. Aggiungi insieme gioco base, aggiornamenti e DLC: vengono "
+    "raggruppati per gioco. «Crea XCI» li unisce in un unico XCI (o converte un singolo NSP), "
+    "«Crea NUP» in un unico NUP con i file già decifrati, «Estrai» salva ExeFS e RomFS con "
+    "l'aggiornamento già applicato.":
+        "No files added. Add base game, updates and DLC together: they are grouped by game. "
+        "\"Create XCI\" merges them into a single XCI (or converts a single NSP), \"Create NUP\" "
+        "into a single NUP with the files already decrypted, \"Extract\" saves ExeFS and RomFS "
+        "with the update already applied.",
+    "Crea NUP": "Create NUP",
+    "File unico con i dati già decifrati e compressi, per gli emulatori che supportano il "
+    "formato NUP":
+        "Single file with the data already decrypted and compressed, for emulators that support "
+        "the NUP format",
+    "Nessun file NSP, XCI o NUP tra quelli scelti.":
+        "No NSP, XCI or NUP files among the chosen ones.",
+    "Seleziona i file NSP/XCI/NUP": "Select the NSP/XCI/NUP files",
+    "File Switch (*.nsp *.xci *.nup);;Tutti i file (*)":
+        "Switch files (*.nsp *.xci *.nup);;All files (*)",
+    "Cartella con file NSP/XCI/NUP": "Folder with NSP/XCI/NUP files",
+    "Creazione NUP in corso": "Creating NUP",
+    "I NUP si aprono con gli emulatori che supportano il formato.":
+        "NUPs open in emulators that support the format.",
+    "NUP esclusi": "NUPs skipped",
+    "I file NUP non possono diventare XCI: contengono i dati già decifrati, senza gli NCA "
+    "originali.":
+        "NUP files cannot become XCIs: they hold the decrypted data, without the original NCAs.",
+    "Creazione XCI e NUP": "XCI and NUP creation",
+    "Unisci in un unico file": "Merge into a single file",
+    "Gioco base, ultimo aggiornamento e DLC dello stesso gioco in un solo XCI o NUP. Se "
+    "disattivato ogni file diventa un XCI o NUP separato.":
+        "Base game, latest update and DLC of the same game in one XCI or NUP. When off, every "
+        "file becomes a separate XCI or NUP.",
 }

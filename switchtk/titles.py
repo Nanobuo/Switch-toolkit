@@ -1,4 +1,4 @@
-"""Reading NSP/XCI files into titles (game, update, DLC) and grouping them by game."""
+"""Reading NSP/XCI/NUP files into titles (game, update, DLC) and grouping them by game."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ import os
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from . import meta
+from . import meta, nup
 from .fs import Cancelled, FileStorage, FormatError, Partition, Storage, SubStorage
 from .i18n import get_language, tr
 from .keys import KeySet, KeysError
 from .meta import Cnmt, ContentRecord, Nacp
 from .nca import Nca, NcaError
 
-EXTENSIONS = (".nsp", ".xci", ".nsz", ".xcz")
+EXTENSIONS = (".nsp", ".xci", ".nup", ".nsz", ".xcz")
 
 
 class Container:
@@ -105,14 +105,17 @@ class Container:
 
 @dataclass
 class Title:
-    path: str                 # NSP/XCI holding it
-    container: str            # nsp | xci
+    path: str                 # NSP/XCI/NUP holding it
+    container: str            # nsp | xci | nup
     cnmt: Cnmt
     meta_file: str            # name of the .cnmt.nca
     meta_size: int
     nacp: Optional[Nacp] = None
     icon: Optional[bytes] = None
     missing: list[str] = field(default_factory=list)   # NCAs listed in the CNMT but absent
+    nacp_raw: Optional[bytes] = None
+    nup_index: Optional[int] = None    # package record, for NUP titles
+    group_id: Optional[int] = None     # game it belongs to, when not derivable from its id
 
     @property
     def title_id(self) -> int:
@@ -128,6 +131,8 @@ class Title:
 
     @property
     def base_id(self) -> int:
+        if self.group_id is not None:
+            return self.group_id
         return meta.base_title_id(self.title_id, self.kind)
 
     @property
@@ -176,7 +181,8 @@ class Title:
             files = {f.path: f for f in romfs.files()}
             if "control.nacp" in files:
                 st = romfs.open(files["control.nacp"])
-                self.nacp = meta.parse_nacp(st.read(0, st.size))
+                self.nacp_raw = st.read(0, st.size)
+                self.nacp = meta.parse_nacp(self.nacp_raw)
             lang = "Italian" if get_language() == "it" else "AmericanEnglish"
             for icon in [f"icon_{lang}.dat", "icon_AmericanEnglish.dat"] + \
                     [p for p in files if p.startswith("icon_")]:
@@ -193,7 +199,11 @@ def verify(path: str, keys: KeySet,
            should_cancel: Optional[Callable[[], bool]] = None) -> list[tuple[str, str]]:
     """SHA-256 of every NCA against its CNMT record: [(file, ok|mismatch|missing)].
 
-    Meaningful for NSPs: NCAs converted for an XCI have a different header, so they differ."""
+    Meaningful for NSPs: NCAs converted for an XCI have a different header, so they differ.
+    For a NUP: every file against its SHA-256 in the index (no keys needed)."""
+    if nup.is_nup(path):
+        with nup.NupFile(path) as n:
+            return n.verify(progress, should_cancel)
     results = []
     with Container(path, keys) as c:
         checks = []
@@ -306,7 +316,58 @@ def group_titles(titles: list[Title]) -> dict[int, Game]:
     return games
 
 
-def read_titles(path: str, keys: KeySet) -> list[Title]:
+NUP_KINDS = {nup.KIND_BASE: "game", nup.KIND_UPDATE: "update", nup.KIND_ADDON: "dlc"}
+
+
+def _nup_nacp(m: dict[int, bytes]) -> Optional[Nacp]:
+    """Name, publisher and version from a NUP meta block: the NACP when present, the
+    title/publisher/localized TLVs otherwise."""
+    text = lambda b: b.decode("utf-8", "replace").strip()  # noqa: E731
+    nacp = meta.parse_nacp(m[nup.TLV_NACP]) if nup.TLV_NACP in m else Nacp({}, "")
+    publisher = text(m.get(nup.TLV_PUBLISHER, b"")) or nacp.publisher()
+    titles = dict(nacp.titles)
+    for tag, name in nup.decode_localized(m.get(nup.TLV_LOCALIZED_TITLES, b"")).items():
+        if tag in nup.NACP_LANGS:
+            titles.setdefault(nup.NACP_LANGS.index(tag), (text(name), publisher))
+    if nup.TLV_TITLE_NAME in m:
+        titles.setdefault(0, (text(m[nup.TLV_TITLE_NAME]), publisher))
+    version = text(m.get(nup.TLV_DISPLAY_VERSION, b"")) or nacp.display_version
+    if not titles and not version:
+        return None
+    return Nacp(titles, version)
+
+
+def nup_titles(path: str) -> list[Title]:
+    with nup.NupFile(path) as n:
+        base = next((p for p in n.packages if p.kind == nup.KIND_BASE), None)
+        out = []
+        for p in n.packages:
+            kind = NUP_KINDS.get(p.kind)
+            if kind is None:
+                continue
+            t = Title(path, "nup", Cnmt(p.title_id, p.version, kind), "", 0, nup_index=p.index)
+            t.nacp_raw = p.meta.get(nup.TLV_NACP)
+            t.nacp = _nup_nacp(p.meta)
+            icons = nup.decode_localized(p.meta.get(nup.TLV_LOCALIZED_ICONS, b""))
+            t.icon = (icons.get("it") if get_language() == "it" else None) or \
+                p.meta.get(nup.TLV_ICON) or icons.get("en-us")
+            if kind != "game":
+                # The add-on id of Switch 2 titles does not give back the game's id.
+                t.group_id = base.title_id if base is not None else (
+                    p.title_id if kind == "update" else None)
+            out.append(t)
+    if not out:
+        raise FormatError(tr("{name}: il NUP non contiene giochi, aggiornamenti o DLC.",
+                             name=os.path.basename(path)))
+    return out
+
+
+def read_titles(path: str, keys: Optional[KeySet]) -> list[Title]:
+    if nup.is_nup(path):
+        return nup_titles(path)
+    if keys is None:
+        raise KeysError(tr("File prod.keys non trovato. Ricavalo dalla tua console con "
+                           "Lockpick_RCM e indicalo nelle impostazioni (o con --keys)."))
     with Container(path, keys) as c:
         return c.titles()
 

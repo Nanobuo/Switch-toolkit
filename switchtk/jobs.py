@@ -1,4 +1,4 @@
-"""What to do with the loaded games: one job per XCI to create or per game to extract."""
+"""What to do with the loaded games: one job per XCI/NUP to create or per game to extract."""
 
 from __future__ import annotations
 
@@ -6,16 +6,16 @@ import os
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from . import extract, xci
+from . import extract, nupbuild, xci
 from .keys import KeySet
-from .titles import Game, Title
+from .titles import Game, Title, group_titles
 
 
 @dataclass
 class Job:
-    kind: str                     # xci | extract
+    kind: str                     # xci | nup | extract
     label: str                    # shown in the queue
-    target: str                   # XCI file or extraction folder
+    target: str                   # XCI/NUP file or extraction folder
     weight: int                   # bytes, for the overall percentage
     titles: list[Title] = field(default_factory=list)
     game: Optional[Game] = None
@@ -26,6 +26,9 @@ class Job:
         if self.kind == "xci":
             return xci.build_xci(self.titles, self.target, keys, progress=progress,
                                  should_cancel=should_cancel, log=log)
+        if self.kind == "nup":
+            return nupbuild.build_nup(self.titles, self.target, keys, progress=progress,
+                                      should_cancel=should_cancel, log=log, **self.options)
         return extract.extract(self.game, os.path.dirname(self.target), keys,
                                progress=progress, should_cancel=should_cancel, log=log,
                                **self.options)
@@ -37,24 +40,46 @@ def _size(paths) -> int:
 
 def xci_jobs(games: list[Game], out_dir: str, merge: bool = True, include_update: bool = True,
              include_dlc: bool = True) -> list[Job]:
+    """NUP sources are left out: they hold no NCAs to put in an XCI."""
+    return _container_jobs("xci", games, out_dir, merge, include_update, include_dlc)
+
+
+def nup_jobs(games: list[Game], out_dir: str, merge: bool = True, include_update: bool = True,
+             include_dlc: bool = True, level: int = 3) -> list[Job]:
+    return _container_jobs("nup", games, out_dir, merge, include_update, include_dlc,
+                           dict(level=level))
+
+
+def _container_jobs(kind: str, games: list[Game], out_dir: str, merge: bool,
+                    include_update: bool, include_dlc: bool,
+                    options: Optional[dict] = None) -> list[Job]:
     jobs = []
     for game in games:
+        titles = [t for t in game.all_titles() if kind != "xci" or t.container != "nup"]
+        if not titles:
+            continue
         if merge:
-            groups = [[t for t in game.merged()
+            usable = next(iter(group_titles(titles).values()))
+            groups = [[t for t in usable.merged()
                        if (include_update or t.kind != "update")
                        and (include_dlc or t.kind != "dlc")]]
-        else:  # plain conversion: one XCI per input file
+        else:  # plain conversion: one output per input file
             by_file: dict[str, list[Title]] = {}
-            for t in game.all_titles():
+            for t in titles:
                 by_file.setdefault(t.path, []).append(t)
             groups = list(by_file.values())
         for content in groups:
             if not content:
                 continue
-            name = xci.default_name(content)
-            jobs.append(Job("xci", name, os.path.join(out_dir, name),
-                            _size(t.path for t in content), content))
+            name = xci.default_name(content) if kind == "xci" else nupbuild.nup_name(content)
+            jobs.append(Job(kind, name, os.path.join(out_dir, name),
+                            _size(t.path for t in content), content,
+                            options=dict(options or {})))
     return jobs
+
+
+def has_nup(games: list[Game]) -> bool:
+    return any(t.container == "nup" for g in games for t in g.all_titles())
 
 
 def extract_jobs(games: list[Game], out_dir: str, exefs: bool = True, romfs: bool = True,

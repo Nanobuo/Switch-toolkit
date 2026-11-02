@@ -2,8 +2,8 @@
 
 Programma per Windows che fa da coltellino svizzero per i giochi **Nintendo Switch**:
 
-- **converte** un NSP in XCI;
-- **unisce** gioco, aggiornamento e DLC in un unico XCI;
+- **converte** un NSP in XCI o in NUP;
+- **unisce** gioco, aggiornamento e DLC in un unico XCI o NUP;
 - **estrae** ExeFS e RomFS, anche con l'aggiornamento già applicato (utile per
   mod e traduzioni).
 
@@ -27,19 +27,32 @@ Usa il programma solo con giochi di cui possiedi una copia.
 
 ## Come si usa
 
-1. Trascina i file `.nsp` o `.xci` nella pagina **Giochi**. Puoi aggiungere
+1. Trascina i file `.nsp`, `.xci` o `.nup` nella pagina **Giochi**. Puoi aggiungere
    insieme gioco, aggiornamenti e DLC, in qualsiasi ordine: vengono raggruppati
    per gioco.
 2. In basso scegli dove salvare i file.
 3. Premi:
    - **Crea XCI** per ottenere un unico file con gioco, ultimo aggiornamento e
      DLC (con un solo NSP è una semplice conversione);
+   - **Crea NUP** per ottenere lo stesso, ma nel formato NUP (vedi sotto);
    - **Estrai ExeFS/RomFS** per ottenere le cartelle `exefs` e `romfs`.
 
 In **Impostazioni** puoi scegliere cosa includere nell'XCI e cosa estrarre,
 oltre a tema e lingua.
 
 ![Operazione completata](docs/completato-scuro.png)
+
+## I file NUP
+
+NUP è un nuovo formato creato dalla comunità per i giochi Switch 1 e Switch 2
+**già decifrati**: un unico file compresso con gioco, aggiornamenti e DLC.
+
+- I NUP si aprono e si estraggono **senza chiavi**.
+- **Crea NUP** usa il tuo `prod.keys` per decifrare NSP e XCI.
+- Un NUP **non** può tornare XCI o NSP: non contiene più i file originali
+  cifrati.
+- Il formato è appena nato (versione 1.0 in bozza) e gli emulatori lo stanno
+  ancora adottando: controlla che il tuo lo supporti.
 
 ## Da sapere
 
@@ -57,6 +70,7 @@ Per chi preferisce il terminale c'è anche `switchtk-cli-windows-x64.exe`:
 
 ```bat
 switchtk-cli xci gioco.nsp aggiornamento.nsp dlc.nsp -o D:\Switch
+switchtk-cli nup gioco.nsp aggiornamento.nsp dlc.nsp -o D:\Switch
 switchtk-cli extract gioco.nsp aggiornamento.nsp -o D:\Switch
 switchtk-cli info gioco.nsp
 ```

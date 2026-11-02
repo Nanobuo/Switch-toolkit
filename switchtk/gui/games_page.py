@@ -1,4 +1,5 @@
-"""'Giochi' page: NSP/XCI files grouped by game, with the XCI and extraction actions."""
+"""'Giochi' page: NSP/XCI/NUP files grouped by game, with the XCI, NUP and extraction
+actions."""
 
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from qfluentwidgets import (BodyLabel, CaptionLabel, FlowLayout, FluentIcon, Ico
                             SubtitleLabel, TitleLabel, ToolTipFilter, TransparentPushButton,
                             TransparentToolButton, setCustomStyleSheet)
 
-from .. import titles
+from .. import nup, titles
 from ..fs import FormatError
 from ..i18n import tr
 from ..keys import KeySet, KeysError
@@ -128,6 +129,7 @@ class GameCard(SimpleCardWidget):
 
 class GamesPage(QWidget):
     xciRequested = Signal()
+    nupRequested = Signal()
     extractRequested = Signal()
     keysNeeded = Signal()
 
@@ -161,8 +163,9 @@ class GamesPage(QWidget):
         self.body.addWidget(self.drop)
         self.empty = secondary(BodyLabel(tr(
             "Nessun file aggiunto. Aggiungi insieme gioco base, aggiornamenti e DLC: vengono "
-            "raggruppati per gioco. «Crea XCI» li unisce in un unico XCI (o converte un singolo "
-            "NSP), «Estrai» salva ExeFS e RomFS con l'aggiornamento già applicato."), view))
+            "raggruppati per gioco. «Crea XCI» li unisce in un unico XCI (o converte un "
+            "singolo NSP), «Crea NUP» in un unico NUP con i file già decifrati, «Estrai» salva "
+            "ExeFS e RomFS con l'aggiornamento già applicato."), view))
         self.empty.setWordWrap(True)
         self.body.addWidget(self.empty)
         self.cardsLayout = QVBoxLayout()
@@ -194,10 +197,16 @@ class GamesPage(QWidget):
         self.clearButton.clicked.connect(self.clear)
         self.extractButton = PushButton(FluentIcon.FOLDER, tr("Estrai ExeFS/RomFS"), bar)
         self.extractButton.clicked.connect(self.extractRequested)
+        self.nupButton = PushButton(FluentIcon.ZIP_FOLDER, tr("Crea NUP"), bar)
+        self.nupButton.setToolTip(tr("File unico con i dati già decifrati e compressi, per gli "
+                                     "emulatori che supportano il formato NUP"))
+        self.nupButton.installEventFilter(ToolTipFilter(self.nupButton))
+        self.nupButton.clicked.connect(self.nupRequested)
         self.xciButton = PrimaryPushButton(FluentIcon.SAVE, tr("Crea XCI"), bar)
         self.xciButton.clicked.connect(self.xciRequested)
         bl.addWidget(self.clearButton)
         bl.addWidget(self.extractButton)
+        bl.addWidget(self.nupButton)
         bl.addWidget(self.xciButton)
         outer.addWidget(bar)
 
@@ -212,17 +221,19 @@ class GamesPage(QWidget):
         files = titles.collect_files(paths)
         if not files:
             if paths:
-                InfoBar.info(tr("Nessun file"), tr("Nessun file NSP o XCI tra quelli scelti."),
+                InfoBar.info(tr("Nessun file"), tr("Nessun file NSP, XCI o NUP tra quelli scelti."),
                              duration=4000, position=InfoBarPosition.TOP_RIGHT,
                              parent=self.window())
             return
         try:
             keys = self.keys()
         except KeysError as ex:
-            InfoBar.error(tr("Chiavi mancanti"), str(ex), duration=8000,
-                          position=InfoBarPosition.TOP_RIGHT, parent=self.window())
-            self.keysNeeded.emit()
-            return
+            if not all(nup.is_nup(p) for p in files):  # NUP files need no keys
+                InfoBar.error(tr("Chiavi mancanti"), str(ex), duration=8000,
+                              position=InfoBarPosition.TOP_RIGHT, parent=self.window())
+                self.keysNeeded.emit()
+                return
+            keys = None
         errors = []
         for path in files:
             path = os.path.abspath(path)
@@ -249,7 +260,7 @@ class GamesPage(QWidget):
         self.refresh()
 
     def set_busy(self, busy: bool) -> None:
-        for w in (self.drop, self.clearButton, self.xciButton, self.extractButton,
+        for w in (self.drop, self.clearButton, self.xciButton, self.nupButton, self.extractButton,
                   self.destButton):
             w.setEnabled(not busy)
         for c in self.cards:
@@ -272,22 +283,31 @@ class GamesPage(QWidget):
         self.summary.setText(
             tr("{games} giochi · {files} file · {size}", games=len(games), files=n_files,
                size=fmt_size(total)) if n_files else tr("Nessun file"))
-        out = cfg.get(cfg.outputDir)
-        self.destButton.setText(elide(self.destButton, out, 480) if out
-                                else tr("Scegli la cartella di destinazione…"))
-        for b in (self.xciButton, self.extractButton, self.clearButton):
+        self._show_dest()
+        for b in (self.xciButton, self.nupButton, self.extractButton, self.clearButton):
             b.setEnabled(bool(n_files))
+
+    def _show_dest(self) -> None:
+        """Output folder, shortened to the room left by the buttons."""
+        out = cfg.get(cfg.outputDir)
+        room = max(120, min(480, self.width() - 700))
+        self.destButton.setText(elide(self.destButton, out, room) if out
+                                else tr("Scegli la cartella di destinazione…"))
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._show_dest()
 
     # -- dialogs -------------------------------------------------------------------
     def choose_files(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(
-            self, tr("Seleziona i file NSP/XCI"), cfg.get(cfg.lastDir),
-            tr("File Switch (*.nsp *.xci);;Tutti i file (*)"))
+            self, tr("Seleziona i file NSP/XCI/NUP"), cfg.get(cfg.lastDir),
+            tr("File Switch (*.nsp *.xci *.nup);;Tutti i file (*)"))
         if paths:
             self.add_paths(paths)
 
     def choose_folder(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, tr("Cartella con file NSP/XCI"),
+        folder = QFileDialog.getExistingDirectory(self, tr("Cartella con file NSP/XCI/NUP"),
                                                   cfg.get(cfg.lastDir))
         if folder:
             self.add_paths([folder])

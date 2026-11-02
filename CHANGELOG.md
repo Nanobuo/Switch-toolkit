@@ -3,6 +3,20 @@
 Ogni release pubblica come descrizione la sezione della propria versione.
 Prima di creare una release aggiungi qui una sezione `## vX.Y.Z`.
 
+## v1.1.0
+
+- **Supporto ai file NUP** (`.nup`), il nuovo contenitore della comunità per i
+  giochi Switch 1 e Switch 2 già decifrati (formato 1.0, ancora in bozza):
+  - i NUP si aprono nella pagina Giochi con nome, icona e versione, e si
+    possono **estrarre** ExeFS e RomFS, anche con l'aggiornamento applicato.
+    Non servono chiavi;
+  - nuovo pulsante **Crea NUP**: decifra gioco, aggiornamento e DLC di NSP/XCI
+    e li unisce in un unico NUP compresso (zstd);
+  - verifica dell'integrità dei NUP da riga di comando (`verify`) e nuovo
+    comando `nup`.
+- I NUP non possono essere convertiti in XCI: non contengono gli NCA cifrati
+  originali.
+
 ## v1.0.1
 
 - Corretta l'estrazione con l'aggiornamento applicato, che si fermava subito

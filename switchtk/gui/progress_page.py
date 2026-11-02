@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import threading
 import time
+from typing import Optional
 
 from PySide6.QtCore import QThread, QUrl, Qt, Signal
 from PySide6.QtGui import QDesktopServices
@@ -27,7 +28,7 @@ class JobWorker(QThread):
     succeeded = Signal()
     failed = Signal(str)
 
-    def __init__(self, jobs: list[Job], keys: KeySet, parent=None):
+    def __init__(self, jobs: list[Job], keys: Optional[KeySet], parent=None):
         super().__init__(parent)
         self.jobs = jobs
         self.keys = keys
@@ -41,8 +42,8 @@ class JobWorker(QThread):
         try:
             for idx, job in enumerate(self.jobs):
                 self.itemStatus.emit(idx, "start")
-                self.logged.emit(("XCI: " if job.kind == "xci" else tr("Estrazione: "))
-                                 + job.target)
+                prefix = {"xci": "XCI: ", "nup": "NUP: "}.get(job.kind, tr("Estrazione: "))
+                self.logged.emit(prefix + job.target)
 
                 def progress(done, total, name, idx=idx):
                     now = time.monotonic()
@@ -79,7 +80,8 @@ class QueueRow(SimpleCardWidget):
         lay.addWidget(self.icon)
         col = QVBoxLayout()
         col.setSpacing(0)
-        kind = tr("Crea XCI") if job.kind == "xci" else tr("Estrai ExeFS/RomFS")
+        kind = {"xci": tr("Crea XCI"), "nup": tr("Crea NUP")}.get(job.kind,
+                                                                 tr("Estrai ExeFS/RomFS"))
         col.addWidget(BodyLabel(f"{kind} · {job.label}", self))
         sources = sorted({os.path.basename(t.path) for t in job.titles}) if job.titles else \
             sorted({os.path.basename(t.path) for t in job.game.all_titles()})
@@ -194,8 +196,9 @@ class ProgressPage(QWidget):
         self.base_bytes = 0
         self.item_bytes = 0
         self.started = time.monotonic()
-        self.title.setText(tr("Creazione XCI in corso") if self.kinds == {"xci"}
-                           else tr("Estrazione in corso"))
+        self.title.setText({"xci": tr("Creazione XCI in corso"),
+                            "nup": tr("Creazione NUP in corso")}.get(
+            next(iter(self.kinds)), tr("Estrazione in corso")))
         self.subtitle.setText(tr("{n} operazioni → {dest}", n=len(jobs), dest=out_dir))
         self.subtitle.setToolTip(self.subtitle.text())
         self.card.show()
@@ -252,9 +255,11 @@ class ProgressPage(QWidget):
             self.title.setText(tr("Operazione completata"))
             self.stats.setText(tr("Tempo impiegato: {sec} s",
                                    sec=int(time.monotonic() - self.started)))
-            text = (tr("Gli XCI si aprono con gli emulatori o si installano sulla console con "
-                       "un installer di homebrew.") if self.kinds == {"xci"}
-                    else tr("ExeFS e RomFS sono pronte: usale per mod e traduzioni (LayeredFS)."))
+            text = {"xci": tr("Gli XCI si aprono con gli emulatori o si installano sulla console "
+                              "con un installer di homebrew."),
+                    "nup": tr("I NUP si aprono con gli emulatori che supportano il formato.")}.get(
+                next(iter(self.kinds)),
+                tr("ExeFS e RomFS sono pronte: usale per mod e traduzioni (LayeredFS)."))
             bar = InfoBar(InfoBarIcon.SUCCESS, tr("Fatto"), text, Qt.Horizontal,
                           isClosable=False, duration=-1, position=InfoBarPosition.NONE,
                           parent=self)

@@ -85,21 +85,22 @@ class DropZone(QWidget):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(20, 12, 20, 12)
         lay.setSpacing(12)
-        lay.addStretch(1)
         icon = IconWidget(FluentIcon.DOWNLOAD, self)
         icon.setFixedSize(20, 20)
         lay.addWidget(icon)
-        lay.addWidget(secondary(BodyLabel(
-            tr("Trascina qui i file NSP o XCI (gioco, aggiornamenti, DLC, in qualsiasi "
-               "ordine) oppure"),
-            self)))
+        label = secondary(BodyLabel(
+            tr("Trascina qui i file NSP, XCI o NUP (gioco, aggiornamenti, DLC, in qualsiasi "
+               "ordine) oppure"), self))
+        label.setWordWrap(True)  # wraps instead of widening the page in a narrow window
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        label.setMinimumWidth(160)
+        lay.addWidget(label, 1)
         self.btnFiles = PushButton(FluentIcon.ADD, tr("Aggiungi file…"), self)
         self.btnFolder = PushButton(FluentIcon.FOLDER_ADD, tr("Aggiungi cartella…"), self)
         self.btnFiles.clicked.connect(self.addFilesClicked)
         self.btnFolder.clicked.connect(self.addFolderClicked)
         lay.addWidget(self.btnFiles)
         lay.addWidget(self.btnFolder)
-        lay.addStretch(1)
         qconfig.themeChanged.connect(lambda _: self.update())
 
     def set_highlight(self, on: bool) -> None:

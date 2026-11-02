@@ -1,3 +1,3 @@
-"""Switch Toolkit: NSP → XCI, unione di gioco + aggiornamenti + DLC, estrazione ExeFS/RomFS."""
+"""Switch Toolkit: NSP → XCI/NUP, unione di gioco, aggiornamenti e DLC, estrazione ExeFS/RomFS."""
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"

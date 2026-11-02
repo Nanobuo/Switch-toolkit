@@ -1,2 +1,3 @@
 cryptography>=42
 PySide6-Fluent-Widgets>=1.7
+zstandard>=0.22

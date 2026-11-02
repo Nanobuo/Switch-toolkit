@@ -74,6 +74,15 @@ class GuiSmoke(unittest.TestCase):
             game = out / "Gui Test [0100ABCD00020000]"
             self.assertEqual((game / "romfs" / "a.txt").read_bytes(), b"b" * 40000)
             self.assertTrue((game / "exefs" / "main.npdm").exists())
+
+            self.run_jobs(app, w, "nup")
+            self.assertEqual(w.progressPage.title.text(), "Operazione completata")
+            (nup_file,) = out.glob("*.nup")
+            self.assertEqual(nup_file.name, "Gui Test [0100ABCD00020000][v65536].nup")
+            w.gamesPage.clear()
+            w.gamesPage.add_paths([str(nup_file)])
+            (card_titles,) = w.gamesPage.games().values()
+            self.assertEqual(card_titles.name, "Gui Test")
             w.close()
             w.deleteLater()
             app.processEvents()
