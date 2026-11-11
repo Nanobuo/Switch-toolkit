@@ -1,5 +1,5 @@
-"""'Giochi' page: NSP/XCI/NUP files grouped by game, with the XCI, NUP and extraction
-actions."""
+"""'Giochi' page: NSP/XCI/NUP/NX files grouped by game, with the XCI, NUP/NX and
+extraction actions."""
 
 from __future__ import annotations
 
@@ -9,13 +9,14 @@ from typing import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QVBoxLayout, QWidget
-from qfluentwidgets import (BodyLabel, CaptionLabel, FlowLayout, FluentIcon, IconWidget,
-                            ImageLabel, InfoBar, InfoBarIcon, InfoBarPosition, PrimaryPushButton,
-                            PushButton, ScrollArea, SimpleCardWidget, StrongBodyLabel,
-                            SubtitleLabel, TitleLabel, ToolTipFilter, TransparentPushButton,
+from qfluentwidgets import (Action, BodyLabel, CaptionLabel, DropDownPushButton, FlowLayout,
+                            FluentIcon, IconWidget, ImageLabel, InfoBar, InfoBarIcon,
+                            InfoBarPosition, PrimaryPushButton, PushButton, RoundMenu,
+                            ScrollArea, SimpleCardWidget, StrongBodyLabel, SubtitleLabel,
+                            TitleLabel, ToolTipFilter, TransparentPushButton,
                             TransparentToolButton, setCustomStyleSheet)
 
-from .. import nup, titles
+from .. import nup, nx, titles
 from ..fs import FormatError
 from ..i18n import tr
 from ..keys import KeySet, KeysError
@@ -129,7 +130,7 @@ class GameCard(SimpleCardWidget):
 
 class GamesPage(QWidget):
     xciRequested = Signal()
-    nupRequested = Signal()
+    archiveRequested = Signal(str)   # "nup" | "nx"
     extractRequested = Signal()
     keysNeeded = Signal()
 
@@ -197,16 +198,22 @@ class GamesPage(QWidget):
         self.clearButton.clicked.connect(self.clear)
         self.extractButton = PushButton(FluentIcon.FOLDER, tr("Estrai ExeFS/RomFS"), bar)
         self.extractButton.clicked.connect(self.extractRequested)
-        self.nupButton = PushButton(FluentIcon.ZIP_FOLDER, tr("Crea NUP"), bar)
-        self.nupButton.setToolTip(tr("File unico con i dati già decifrati e compressi, per gli "
-                                     "emulatori che supportano il formato NUP"))
-        self.nupButton.installEventFilter(ToolTipFilter(self.nupButton))
-        self.nupButton.clicked.connect(self.nupRequested)
+        self.archiveButton = DropDownPushButton(FluentIcon.ZIP_FOLDER, tr("Crea archivio"), bar)
+        self.archiveButton.setToolTip(tr("File unico con i dati già decifrati, per gli "
+                                         "emulatori che supportano NUP o NX"))
+        self.archiveButton.installEventFilter(ToolTipFilter(self.archiveButton))
+        menu = RoundMenu(parent=self.archiveButton)
+        menu.addAction(Action(FluentIcon.ZIP_FOLDER, tr("NX (consigliato: letture veloci, "
+                                                         "aggiornamenti condivisi)"),
+                              triggered=lambda: self.archiveRequested.emit("nx")))
+        menu.addAction(Action(FluentIcon.ZIP_FOLDER, "NUP",
+                              triggered=lambda: self.archiveRequested.emit("nup")))
+        self.archiveButton.setMenu(menu)
         self.xciButton = PrimaryPushButton(FluentIcon.SAVE, tr("Crea XCI"), bar)
         self.xciButton.clicked.connect(self.xciRequested)
         bl.addWidget(self.clearButton)
         bl.addWidget(self.extractButton)
-        bl.addWidget(self.nupButton)
+        bl.addWidget(self.archiveButton)
         bl.addWidget(self.xciButton)
         outer.addWidget(bar)
 
@@ -221,14 +228,15 @@ class GamesPage(QWidget):
         files = titles.collect_files(paths)
         if not files:
             if paths:
-                InfoBar.info(tr("Nessun file"), tr("Nessun file NSP, XCI o NUP tra quelli scelti."),
+                InfoBar.info(tr("Nessun file"), tr("Nessun file NSP, XCI, NUP o NX tra quelli "
+                                                   "scelti."),
                              duration=4000, position=InfoBarPosition.TOP_RIGHT,
                              parent=self.window())
             return
         try:
             keys = self.keys()
         except KeysError as ex:
-            if not all(nup.is_nup(p) for p in files):  # NUP files need no keys
+            if not all(nup.is_nup(p) or nx.is_nx(p) for p in files):  # these need no keys
                 InfoBar.error(tr("Chiavi mancanti"), str(ex), duration=8000,
                               position=InfoBarPosition.TOP_RIGHT, parent=self.window())
                 self.keysNeeded.emit()
@@ -277,7 +285,7 @@ class GamesPage(QWidget):
             tr("{games} giochi · {files} file · {size}", games=len(games), files=n_files,
                size=fmt_size(total)) if n_files else tr("Nessun file"))
         self._show_dest()
-        for b in (self.xciButton, self.nupButton, self.extractButton, self.clearButton):
+        for b in (self.xciButton, self.archiveButton, self.extractButton, self.clearButton):
             b.setEnabled(bool(n_files))
 
     def _show_dest(self) -> None:
@@ -294,13 +302,13 @@ class GamesPage(QWidget):
     # -- dialogs -------------------------------------------------------------------
     def choose_files(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(
-            self, tr("Seleziona i file NSP/XCI/NUP"), cfg.get(cfg.lastDir),
-            tr("File Switch (*.nsp *.xci *.nup);;Tutti i file (*)"))
+            self, tr("Seleziona i file NSP/XCI/NUP/NX"), cfg.get(cfg.lastDir),
+            tr("File Switch (*.nsp *.xci *.nup *.nx);;Tutti i file (*)"))
         if paths:
             self.add_paths(paths)
 
     def choose_folder(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, tr("Cartella con file NSP/XCI/NUP"),
+        folder = QFileDialog.getExistingDirectory(self, tr("Cartella con file NSP/XCI/NUP/NX"),
                                                   cfg.get(cfg.lastDir))
         if folder:
             self.add_paths([folder])

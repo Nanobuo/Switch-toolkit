@@ -178,9 +178,17 @@ def nca_id(data: bytes) -> str:
 # -- update (BKTR) section ------------------------------------------------------------
 
 def _bucket_tree(entries: list[bytes], end: int) -> bytes:
-    head = struct.pack("<IIQ", 0, 1, end).ljust(0x4000, b"\0")
-    bucket = struct.pack("<IIQ", 0, len(entries), end) + b"".join(entries)
-    return head + bucket.ljust(0x4000, b"\0")
+    """Header (bucket count, end, each bucket's start offset) and 0x4000-byte buckets."""
+    per = (0x4000 - 0x10) // len(entries[0])
+    groups = [entries[i:i + per] for i in range(0, len(entries), per)]
+    starts = [struct.unpack_from("<Q", g[0])[0] for g in groups]
+    head = struct.pack("<IIQ", 0, len(groups), end) + b"".join(struct.pack("<Q", s)
+                                                               for s in starts)
+    out = head.ljust(0x4000, b"\0")
+    for k, g in enumerate(groups):
+        stop = starts[k + 1] if k + 1 < len(groups) else end
+        out += (struct.pack("<IIQ", 0, len(g), stop) + b"".join(g)).ljust(0x4000, b"\0")
+    return out
 
 
 def bktr_section(base_section: bytes, new_payload: bytes, block: int = 0x4000):

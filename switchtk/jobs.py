@@ -6,16 +6,16 @@ import os
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from . import extract, nupbuild, xci
+from . import extract, nupbuild, nxbuild, xci
 from .keys import KeySet
 from .titles import Game, Title, group_titles
 
 
 @dataclass
 class Job:
-    kind: str                     # xci | nup | extract
+    kind: str                     # xci | nup | nx | extract
     label: str                    # shown in the queue
-    target: str                   # XCI/NUP file or extraction folder
+    target: str                   # XCI/NUP/NX file or extraction folder
     weight: int                   # bytes, for the overall percentage
     titles: list[Title] = field(default_factory=list)
     game: Optional[Game] = None
@@ -29,6 +29,9 @@ class Job:
         if self.kind == "nup":
             return nupbuild.build_nup(self.titles, self.target, keys, progress=progress,
                                       should_cancel=should_cancel, log=log, **self.options)
+        if self.kind == "nx":
+            return nxbuild.build_nx(self.titles, self.target, keys, progress=progress,
+                                    should_cancel=should_cancel, log=log, **self.options)
         return extract.extract(self.game, os.path.dirname(self.target), keys,
                                progress=progress, should_cancel=should_cancel, log=log,
                                **self.options)
@@ -40,7 +43,7 @@ def _size(paths) -> int:
 
 def xci_jobs(games: list[Game], out_dir: str, merge: bool = True, include_update: bool = True,
              include_dlc: bool = True) -> list[Job]:
-    """NUP sources are left out: they hold no NCAs to put in an XCI."""
+    """NUP and NX sources are left out: they hold no encrypted NCAs to put in an XCI."""
     return _container_jobs("xci", games, out_dir, merge, include_update, include_dlc)
 
 
@@ -50,12 +53,18 @@ def nup_jobs(games: list[Game], out_dir: str, merge: bool = True, include_update
                            dict(level=level))
 
 
+def nx_jobs(games: list[Game], out_dir: str, merge: bool = True, include_update: bool = True,
+            include_dlc: bool = True, level: int = 3, compress: bool = True) -> list[Job]:
+    return _container_jobs("nx", games, out_dir, merge, include_update, include_dlc,
+                           dict(level=level, compress=compress))
+
+
 def _container_jobs(kind: str, games: list[Game], out_dir: str, merge: bool,
                     include_update: bool, include_dlc: bool,
                     options: Optional[dict] = None) -> list[Job]:
     jobs = []
     for game in games:
-        titles = [t for t in game.all_titles() if kind != "xci" or t.container != "nup"]
+        titles = [t for t in game.all_titles() if kind != "xci" or not decrypted(t)]
         if not titles:
             continue
         if merge:
@@ -71,15 +80,21 @@ def _container_jobs(kind: str, games: list[Game], out_dir: str, merge: bool,
         for content in groups:
             if not content:
                 continue
-            name = xci.default_name(content) if kind == "xci" else nupbuild.nup_name(content)
+            name = {"xci": xci.default_name, "nup": nupbuild.nup_name,
+                    "nx": nxbuild.nx_name}[kind](content)
             jobs.append(Job(kind, name, os.path.join(out_dir, name),
                             _size(t.path for t in content), content,
                             options=dict(options or {})))
     return jobs
 
 
-def has_nup(games: list[Game]) -> bool:
-    return any(t.container == "nup" for g in games for t in g.all_titles())
+def decrypted(title: Title) -> bool:
+    """NUP and NX hold decrypted files: no NCA to put in an XCI."""
+    return title.container in ("nup", "nx")
+
+
+def has_decrypted(games: list[Game]) -> bool:
+    return any(decrypted(t) for g in games for t in g.all_titles())
 
 
 def extract_jobs(games: list[Game], out_dir: str, exefs: bool = True, romfs: bool = True,

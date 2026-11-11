@@ -43,16 +43,17 @@ jobs:
 
       - name: Build executables
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name SwitchToolkit --icon assets/switchtk.png --add-data "assets/switchtk.png;assets" --collect-submodules zstandard --exclude-module tkinter switchtk_gui.py
-          pyinstaller --noconfirm --onefile --console --name switchtk-cli --icon assets/switchtk.png --collect-submodules zstandard --exclude-module PySide6 --exclude-module qfluentwidgets --exclude-module tkinter switchtk_cli.py
+          pyinstaller --noconfirm --onefile --windowed --name SwitchToolkit --icon assets/switchtk.png --add-data "assets/switchtk.png;assets" --collect-submodules zstandard --collect-submodules crc32c --exclude-module tkinter switchtk_gui.py
+          pyinstaller --noconfirm --onefile --console --name switchtk-cli --icon assets/switchtk.png --collect-submodules zstandard --collect-submodules crc32c --exclude-module PySide6 --exclude-module qfluentwidgets --exclude-module tkinter switchtk_cli.py
 
       - name: Smoke test
-        # --version also loads zstd: "zstd -" means the NUP support is missing from the exe.
+        # --version also loads zstd and crc32c: "zstd -" or "crc32c Python" means the exe
+        # lacks the C modules NUP and NX need.
         shell: pwsh
         run: |
           $v = dist\switchtk-cli.exe --version
           $v
-          if ($v -match 'zstd -') { exit 1 }
+          if ($v -match 'zstd -' -or $v -notmatch 'crc32c C') { exit 1 }
 
       - uses: actions/upload-artifact@v7
         with:

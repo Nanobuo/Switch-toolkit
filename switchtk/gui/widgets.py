@@ -89,8 +89,8 @@ class DropZone(QWidget):
         icon.setFixedSize(20, 20)
         lay.addWidget(icon)
         label = secondary(BodyLabel(
-            tr("Trascina qui i file NSP, XCI o NUP (gioco, aggiornamenti, DLC, in qualsiasi "
-               "ordine) oppure"), self))
+            tr("Trascina qui i file NSP, XCI, NUP o NX (gioco, aggiornamenti, DLC, in "
+               "qualsiasi ordine) oppure"), self))
         label.setWordWrap(True)  # wraps instead of widening the page in a narrow window
         label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         label.setMinimumWidth(160)

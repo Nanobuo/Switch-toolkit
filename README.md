@@ -2,8 +2,8 @@
 
 Programma per Windows che fa da coltellino svizzero per i giochi **Nintendo Switch**:
 
-- **converte** un NSP in XCI o in NUP;
-- **unisce** gioco, aggiornamento e DLC in un unico XCI o NUP;
+- **converte** un NSP in XCI, NUP o NX;
+- **unisce** gioco, aggiornamento e DLC in un unico XCI, NUP o NX;
 - **estrae** ExeFS e RomFS, anche con l'aggiornamento già applicato (utile per
   mod e traduzioni).
 
@@ -27,14 +27,15 @@ Usa il programma solo con giochi di cui possiedi una copia.
 
 ## Come si usa
 
-1. Trascina i file `.nsp`, `.xci` o `.nup` nella pagina **Giochi**. Puoi aggiungere
+1. Trascina i file `.nsp`, `.xci`, `.nup` o `.nx` nella pagina **Giochi**. Puoi aggiungere
    insieme gioco, aggiornamenti e DLC, in qualsiasi ordine: vengono raggruppati
    per gioco.
 2. In basso scegli dove salvare i file.
 3. Premi:
    - **Crea XCI** per ottenere un unico file con gioco, ultimo aggiornamento e
      DLC (con un solo NSP è una semplice conversione);
-   - **Crea NUP** per ottenere lo stesso, ma nel formato NUP (vedi sotto);
+   - **Crea archivio → NX** o **NUP** per ottenere lo stesso in un formato con i
+     dati già decifrati (vedi sotto);
    - **Estrai ExeFS/RomFS** per ottenere le cartelle `exefs` e `romfs`.
 
 Puoi premere i pulsanti anche mentre un'operazione è in corso: le nuove
@@ -47,17 +48,22 @@ oltre a tema e lingua.
 
 ![Operazione completata](docs/completato-scuro.png)
 
-## I file NUP
+## I file NX e NUP
 
-NUP è un nuovo formato creato dalla comunità per i giochi Switch 1 e Switch 2
-**già decifrati**: un unico file compresso con gioco, aggiornamenti e DLC.
+NX e NUP sono due nuovi formati creati dalla comunità per i giochi Switch 1 e
+Switch 2 **già decifrati**: un unico file con gioco, aggiornamenti e DLC.
 
-- I NUP si aprono e si estraggono **senza chiavi**.
-- **Crea NUP** usa il tuo `prod.keys` per decifrare NSP e XCI.
-- Un NUP **non** può tornare XCI o NSP: non contiene più i file originali
+- **NX** ([nxformat](https://github.com/fab918/nxformat)) è il consigliato:
+  legge molto più velocemente i dati compressi e salva una sola volta i file
+  che gioco e aggiornamento hanno in comune.
+- **NUP** ([nup](https://github.com/a55uka/nup)) comprime ogni file per
+  intero.
+- Si aprono, si estraggono e si convertono l'uno nell'altro **senza chiavi**.
+  Per crearli da NSP e XCI serve il tuo `prod.keys`.
+- **Non** possono tornare XCI o NSP: non contengono più i file originali
   cifrati.
-- Il formato è appena nato (versione 1.0 in bozza) e gli emulatori lo stanno
-  ancora adottando: controlla che il tuo lo supporti.
+- Sono formati appena nati e gli emulatori li stanno ancora adottando:
+  controlla che il tuo li supporti.
 
 ## Da sapere
 
@@ -75,6 +81,7 @@ Per chi preferisce il terminale c'è anche `switchtk-cli-windows-x64.exe`:
 
 ```bat
 switchtk-cli xci gioco.nsp aggiornamento.nsp dlc.nsp -o D:\Switch
+switchtk-cli nx gioco.nsp aggiornamento.nsp dlc.nsp -o D:\Switch
 switchtk-cli nup gioco.nsp aggiornamento.nsp dlc.nsp -o D:\Switch
 switchtk-cli extract gioco.nsp aggiornamento.nsp -o D:\Switch
 switchtk-cli info gioco.nsp
@@ -85,7 +92,8 @@ switchtk-cli info gioco.nsp
 ## Per sviluppatori
 
 Per compilare serve Python 3.10 o successivo: lancia `build.bat`, che esegue
-i test e crea gli `.exe` in `dist\`.
+i test e crea gli `.exe` in `dist\`. I test NX usano le fixture di conformità
+del progetto nxformat (licenza MIT, in `tests/nx_fixtures`).
 
 Per pubblicare una nuova versione aggiorna `__version__` in
 `switchtk/__init__.py`, aggiungi le novità in [`CHANGELOG.md`](CHANGELOG.md) e

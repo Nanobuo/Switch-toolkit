@@ -8,7 +8,7 @@ import sys
 import time
 from typing import Optional
 
-from . import __version__, i18n, jobs, nup, titles, xci
+from . import __version__, i18n, jobs, nup, nx, titles, xci
 from .fs import Cancelled, FormatError
 from .i18n import tr
 from .keys import KeySet, KeysError
@@ -16,20 +16,24 @@ from .meta import tid_str
 
 
 def _keys(args) -> Optional[KeySet]:
-    """The keys; NUP files are plain, so without prod.keys they still work on their own."""
+    """The keys; NUP/NX files are plain, so without prod.keys they still work on their own."""
     try:
         return KeySet.load(args.keys, args.title_keys)
     except KeysError:
         paths = titles.collect_files(getattr(args, "files", []))
-        if paths and all(nup.is_nup(p) for p in paths) and not args.keys:
+        if paths and all(_plain(p) for p in paths) and not args.keys:
             return None
         raise
+
+
+def _plain(path: str) -> bool:
+    return nup.is_nup(path) or nx.is_nx(path)
 
 
 def _load(args, ks: KeySet) -> list[titles.Title]:
     paths = titles.collect_files(args.files)
     if not paths:
-        raise FormatError(tr("Nessun file NSP/XCI/NUP trovato."))
+        raise FormatError(tr("Nessun file NSP/XCI/NUP/NX trovato."))
     out = []
     for path in paths:
         out += titles.read_titles(path, ks)
@@ -62,6 +66,9 @@ def _cmd_info(args) -> int:
         if nup.is_nup(path):
             _info_nup(path, args.files_list)
             continue
+        if nx.is_nx(path):
+            _info_nx(path, args.files_list)
+            continue
         with titles.Container(path, ks) as c:
             for t in c.titles():
                 print(f"  {titles.kind_label(t.kind):<16} {tid_str(t.title_id)}  "
@@ -91,6 +98,20 @@ def _info_nup(path: str, files: bool) -> None:
                         print(f"    {which}/{rel}  ({e.size} B)")
 
 
+def _info_nx(path: str, files: bool) -> None:
+    for t in titles.nx_titles(path):
+        print(f"  {titles.kind_label(t.kind):<16} {tid_str(t.title_id)}  "
+              f"{titles.version_label(t)}  {t.name}")
+    if files:
+        with nx.NxArchive(path) as a:
+            for app in a.applications:
+                for s in app.snapshots:
+                    print(f"    [{app.application_id:016X} v{s.version} · "
+                          f"{s.identity.hex()[:16]}]")
+                    for rel, st in sorted(a.tree(s.root).items()):
+                        print(f"    {rel}  ({st.size} B)")
+
+
 def _cmd_xci(args) -> int:
     ks = _keys(args)
     games = list(titles.group_titles(_load(args, ks)).values())
@@ -100,10 +121,10 @@ def _cmd_xci(args) -> int:
                 print(tr("ATTENZIONE: {message}", message=w))
     todo = jobs.xci_jobs(games, os.path.abspath(args.output), merge=not args.no_merge,
                          include_update=not args.no_update, include_dlc=not args.no_dlc)
-    if jobs.has_nup(games):
+    if jobs.has_decrypted(games):
         print(tr("ATTENZIONE: {message}", message=tr(
-            "i file NUP non possono diventare XCI (contengono dati già decifrati, senza gli "
-            "NCA): vengono ignorati.")))
+            "i file NUP e NX non possono diventare XCI (contengono dati già decifrati, senza "
+            "gli NCA): vengono ignorati.")))
     for job in todo:
         print(tr("Creo {name}", name=job.target))
         xci.build_xci(job.titles, job.target, ks, progress=_Progress(), log=lambda _m: None,
@@ -111,12 +132,16 @@ def _cmd_xci(args) -> int:
     return 0
 
 
-def _cmd_nup(args) -> int:
+def _cmd_archive(args) -> int:
     ks = _keys(args)
     games = list(titles.group_titles(_load(args, ks)).values())
-    todo = jobs.nup_jobs(games, os.path.abspath(args.output), merge=not args.no_merge,
-                         include_update=not args.no_update, include_dlc=not args.no_dlc,
-                         level=args.level)
+    common = dict(merge=not args.no_merge, include_update=not args.no_update,
+                  include_dlc=not args.no_dlc, level=args.level)
+    if args.cmd == "nx":
+        todo = jobs.nx_jobs(games, os.path.abspath(args.output), compress=not args.no_compress,
+                            **common)
+    else:
+        todo = jobs.nup_jobs(games, os.path.abspath(args.output), **common)
     for job in todo:
         print(tr("Creo {name}", name=job.target))
         job.run(ks, _Progress(), lambda: False, lambda _m: None)
@@ -156,16 +181,17 @@ def main(argv=None) -> int:
     i18n.set_language(i18n.resolve(os.environ.get("SWITCHTK_LANG", "auto")))
     parser = argparse.ArgumentParser(
         prog="switchtk",
-        description=tr("Coltellino svizzero per i file Nintendo Switch: NSP → XCI o NUP, "
+        description=tr("Coltellino svizzero per i file Nintendo Switch: NSP → XCI, NUP o NX, "
                        "unione di gioco, aggiornamenti e DLC, estrazione di ExeFS e RomFS."))
     parser.add_argument("--version", action="version",
-                        version=f"{__version__} (zstd {nup.zstd_version() or '-'})")
+                        version=f"{__version__} (zstd {nup.zstd_version() or '-'}, "
+                                f"crc32c {nx.CRC_BACKEND})")
     parser.add_argument("--keys", help=tr("file prod.keys (predefinito: cercato nelle cartelle "
                                           "abituali)"))
     parser.add_argument("--title-keys", help=tr("file title.keys facoltativo"))
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_info = sub.add_parser("info", help=tr("mostra i contenuti di file NSP/XCI/NUP"))
+    p_info = sub.add_parser("info", help=tr("mostra i contenuti di file NSP/XCI/NUP/NX"))
     p_info.add_argument("files", nargs="+")
     p_info.add_argument("--files", dest="files_list", action="store_true",
                         help=tr("elenca anche gli NCA contenuti"))
@@ -185,19 +211,28 @@ def main(argv=None) -> int:
                        help=tr("non controllare lo spazio libero"))
     p_xci.set_defaults(func=_cmd_xci)
 
-    p_nup = sub.add_parser("nup", help=tr("crea un NUP (file decifrati e compressi) con "
-                                          "gioco, aggiornamento e DLC"))
-    p_nup.add_argument("files", nargs="+", help=tr("file NSP/XCI o cartelle (in qualsiasi "
-                                                   "ordine)"))
-    p_nup.add_argument("-o", "--output", required=True, help=tr("cartella di destinazione"))
-    p_nup.add_argument("--no-merge", action="store_true",
-                       help=tr("un NUP per ogni file, senza unire"))
-    p_nup.add_argument("--no-update", action="store_true", help=tr("non includere "
-                                                                   "l'aggiornamento"))
-    p_nup.add_argument("--no-dlc", action="store_true", help=tr("non includere i DLC"))
-    p_nup.add_argument("--level", type=int, default=3, choices=range(1, 20), metavar="1-19",
-                       help=tr("livello di compressione zstd (predefinito 3)"))
-    p_nup.set_defaults(func=_cmd_nup)
+    for name, text, merge_help, top in (
+            ("nup", tr("crea un NUP (file decifrati e compressi) con gioco, aggiornamento e "
+                       "DLC"), tr("un NUP per ogni file, senza unire"), 19),
+            ("nx", tr("crea un archivio NX (file decifrati, blocchi compressi e deduplicati) "
+                      "con gioco, aggiornamento e DLC"), tr("un NX per ogni file, senza unire"),
+             13)):
+        p_arc = sub.add_parser(name, help=text)
+        p_arc.add_argument("files", nargs="+", help=tr("file NSP/XCI/NUP/NX o cartelle (in "
+                                                       "qualsiasi ordine)"))
+        p_arc.add_argument("-o", "--output", required=True, help=tr("cartella di destinazione"))
+        p_arc.add_argument("--no-merge", action="store_true", help=merge_help)
+        p_arc.add_argument("--no-update", action="store_true",
+                           help=tr("non includere l'aggiornamento"))
+        p_arc.add_argument("--no-dlc", action="store_true", help=tr("non includere i DLC"))
+        p_arc.add_argument("--level", type=int, default=3, choices=range(1, top + 1),
+                           metavar=f"1-{top}",
+                           help=tr("livello di compressione zstd (predefinito 3)"))
+        if name == "nx":
+            p_arc.add_argument("--no-compress", action="store_true",
+                               help=tr("blocchi non compressi: archivio più grande, letture "
+                                       "più veloci"))
+        p_arc.set_defaults(func=_cmd_archive)
 
     p_ext = sub.add_parser("extract", help=tr("estrae ExeFS e RomFS (con l'aggiornamento "
                                               "applicato)"))
@@ -212,7 +247,7 @@ def main(argv=None) -> int:
                        help=tr("estrai il gioco base senza applicare l'aggiornamento"))
     p_ext.set_defaults(func=_cmd_extract)
 
-    p_ver = sub.add_parser("verify", help=tr("verifica l'integrità (SHA-256) di NSP e NUP"))
+    p_ver = sub.add_parser("verify", help=tr("verifica l'integrità di NSP, NUP e NX"))
     p_ver.add_argument("files", nargs="+")
     p_ver.set_defaults(func=_cmd_verify)
 

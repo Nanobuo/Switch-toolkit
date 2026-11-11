@@ -25,6 +25,11 @@ def _small(layer: Layer, name: str, limit: int = 1 << 20) -> Optional[bytes]:
     return st.read(0, st.size) if st is not None and st.size <= limit else None
 
 
+def _data(layer: Layer) -> dict:
+    """Files outside exefs/romfs go below the package's data/ directory."""
+    return {p[len("data/"):] if p.startswith("data/") else p: st for p, st in layer.data.items()}
+
+
 def package_meta(title: Title, layer: Layer, app: bool) -> dict[int, bytes]:
     m = {nup.TLV_SOURCE: os.path.basename(title.path).encode("utf-8")}
     npdm = _small(layer, "main.npdm")
@@ -72,18 +77,21 @@ def build_nup(titles: list[Title], out_path: str, keys: Optional[KeySet], level:
             base_layer = open_layer(stack, base, keys, log=log)
             packages.append(nup.NewPackage(nup.KIND_BASE, base.title_id, base.version,
                                            exefs=base_layer.exefs, romfs=base_layer.romfs,
-                                           meta=package_meta(base, base_layer, True)))
+                                           meta=package_meta(base, base_layer, True),
+                                           data=_data(base_layer)))
         if update is not None:
             layer = open_layer(stack, update, keys, base_layer, log=log)
             # The program id of an update is the game's (as in its main.npdm).
-            tid = update.title_id if update.container == "nup" else update.base_id
+            tid = update.title_id if update.container in ("nup", "nx") else update.base_id
             flags = 0 if base is not None else nup.FLAG_STANDALONE_UPDATE
             packages.append(nup.NewPackage(nup.KIND_UPDATE, tid, update.version, flags,
                                            layer.exefs, layer.romfs,
-                                           package_meta(update, layer, base is None)))
+                                           package_meta(update, layer, base is None),
+                                           _data(layer)))
         for dlc in dlcs:
             layer = open_layer(stack, dlc, keys, log=log)
             packages.append(nup.NewPackage(nup.KIND_ADDON, dlc.title_id, dlc.version,
                                            romfs=layer.romfs,
-                                           meta=package_meta(dlc, layer, False)))
+                                           meta=package_meta(dlc, layer, False),
+                                           data=_data(layer)))
         return nup.write_nup(out_path, packages, level, progress, should_cancel)

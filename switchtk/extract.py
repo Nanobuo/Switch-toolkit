@@ -9,7 +9,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from . import meta, nup
+from . import meta, nup, nx
 from .fs import Cancelled, FormatError, Storage
 from .i18n import tr
 from .keys import KeySet
@@ -29,9 +29,28 @@ class Layer:
     """The files one title contributes: a base game, an update or a DLC."""
     exefs: dict[str, Storage] = field(default_factory=dict)
     romfs: dict[str, Storage] = field(default_factory=dict)
+    data: dict[str, Storage] = field(default_factory=dict)   # anything else, full path
     romfs_image: Optional[Storage] = None   # the whole RomFS (NCA sources only)
     nca: Optional[Nca] = None
     overlay: bool = False                   # NUP update: shadows the base files one by one
+
+    def tree(self) -> dict[str, Storage]:
+        """Complete view as one tree: exefs/..., romfs/..., other paths as they are."""
+        out = {"exefs/" + p: st for p, st in self.exefs.items()}
+        out.update({"romfs/" + p: st for p, st in self.romfs.items()})
+        out.update(self.data)
+        return out
+
+
+def split_tree(files: dict[str, Storage]) -> Layer:
+    layer = Layer()
+    for path, st in files.items():
+        top, _, rest = path.partition("/")
+        if top in ("exefs", "romfs") and rest:
+            getattr(layer, top)[rest] = st
+        else:
+            layer.data[path] = st
+    return layer
 
 
 def _nca(stack: ExitStack, title: Title, keys: KeySet, content_type: int) -> Nca:
@@ -51,14 +70,26 @@ def open_layer(stack: ExitStack, title: Title, keys: Optional[KeySet],
         n = stack.enter_context(nup.NupFile(title.path))
         pkg = n.packages[title.nup_index]
         return Layer(n.tree(pkg, "exefs") if exefs else {},
-                     n.tree(pkg, "romfs") if romfs else {}, overlay=True)
+                     n.tree(pkg, "romfs") if romfs else {},
+                     {"data/" + p: st for p, st in n.tree(pkg, "data").items()}, overlay=True)
+    if title.container == "nx":
+        a = stack.enter_context(nx.NxArchive(title.path))
+        snap = next(s for app in a.applications for s in app.snapshots
+                    if s.index == title.nx_snapshot)
+        layer = split_tree(a.tree(snap.root))
+        if not exefs:
+            layer.exefs = {}
+        if not romfs:
+            layer.romfs = {}
+        return layer  # every NX snapshot is already a complete view
     if keys is None:
         raise FormatError(tr("File prod.keys non trovato. Ricavalo dalla tua console con "
                              "Lockpick_RCM e indicalo nelle impostazioni (o con --keys)."))
     if title.kind == "dlc":
         nca = _nca(stack, title, keys, 2)  # data
         fs = nca.romfs()
-        return Layer({}, {f.path: fs.open(f) for f in fs.files()}, fs.storage, nca)
+        return Layer(romfs={f.path: fs.open(f) for f in fs.files()}, romfs_image=fs.storage,
+                     nca=nca)
     nca = _nca(stack, title, keys, meta.CONTENT_PROGRAM)
     layer = Layer(nca=nca)
     if exefs:
@@ -84,11 +115,14 @@ def merge(base: Optional[Layer], update: Optional[Layer]) -> Layer:
         return base or Layer()
     if base is None:
         return update
-    if update.overlay:  # NUP: path by path
-        return Layer({**base.exefs, **update.exefs}, {**base.romfs, **update.romfs})
+    if update.overlay:  # NUP: the update's ExeFS replaces the base one, other paths shadow
+        return Layer(update.exefs or base.exefs, {**base.romfs, **update.romfs},
+                     {**base.data, **update.data})
+    if update.nca is None:  # NX: the update snapshot is the complete view
+        return update
     # NCA update: complete ExeFS and complete (rebuilt) RomFS
     return Layer(update.exefs or base.exefs, update.romfs or base.romfs,
-                 update.romfs_image if update.romfs else base.romfs_image)
+                 romfs_image=update.romfs_image if update.romfs else base.romfs_image)
 
 
 def dest_dir(game: Game, out_dir: str) -> str:
@@ -135,9 +169,13 @@ def extract(game: Game, out_dir: str, keys: Optional[KeySet], exefs: bool = True
         if update is not None:
             log(tr("Applico l'aggiornamento {version}.", version=version_label(update)))
         final = merge(base, patch)
-        if exefs and not final.exefs:
+        if exefs and not final.exefs and not final.data:
             raise FormatError(tr("ExeFS non trovata."))
+        if exefs and not final.exefs:
+            log(tr("Archivio NX «nativo»: contiene gli NCA già decifrati, non ExeFS e RomFS. "
+                   "Estraggo i file così come sono."))
         jobs: list[tuple[str, Storage]] = [("exefs/" + p, st) for p, st in final.exefs.items()]
+        jobs += list(final.data.items())
         if romfs_bin and final.romfs_image is not None:
             jobs.append(("romfs.bin", final.romfs_image))
         else:

@@ -67,10 +67,10 @@ class SettingsPage(QWidget):
         paths.addSettingCard(self.outputCard)
         lay.addWidget(paths)
 
-        xcigroup = SettingCardGroup(tr("Creazione XCI e NUP"), view)
+        xcigroup = SettingCardGroup(tr("Creazione di XCI e archivi"), view)
         self._switch(xcigroup, cfg.mergeXci, FluentIcon.ALBUM, tr("Unisci in un unico file"),
                      tr("Gioco base, ultimo aggiornamento e DLC dello stesso gioco in un solo "
-                        "XCI o NUP. Se disattivato ogni file diventa un XCI o NUP separato."))
+                        "file. Se disattivato ogni file diventa un XCI, NUP o NX separato."))
         self._switch(xcigroup, cfg.includeUpdate, FluentIcon.SYNC, tr("Includi l'aggiornamento"),
                      tr("Solo il più recente: gli aggiornamenti sono cumulativi."))
         self._switch(xcigroup, cfg.includeDlc, FluentIcon.ADD_TO, tr("Includi i DLC"), "")

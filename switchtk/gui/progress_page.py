@@ -53,7 +53,7 @@ class JobWorker(QThread):
 
     def run(self) -> None:
         job = self.job
-        prefix = {"xci": "XCI: ", "nup": "NUP: "}.get(job.kind, tr("Estrazione: "))
+        prefix = {"xci": "XCI: ", "nup": "NUP: ", "nx": "NX: "}.get(job.kind, tr("Estrazione: "))
         self.logged.emit(prefix + job.target)
         try:
             job.run(self.keys, self._progress, self.cancel_event.is_set, self.logged.emit)
@@ -90,7 +90,7 @@ class QueueRow(SimpleCardWidget):
         lay.addWidget(self.icon)
         col = QVBoxLayout()
         col.setSpacing(0)
-        kind = {"xci": tr("Crea XCI"), "nup": tr("Crea NUP")}.get(job.kind,
+        kind = {"xci": tr("Crea XCI"), "nup": tr("Crea NUP"), "nx": tr("Crea NX")}.get(job.kind,
                                                                  tr("Estrai ExeFS/RomFS"))
         col.addWidget(BodyLabel(f"{kind} · {job.label}", self))
         sources = sorted({os.path.basename(t.path) for t in job.titles}) if job.titles else \
@@ -389,7 +389,9 @@ class ProgressPage(QWidget):
             kinds = {r.job.kind for r in ok}
             text = {"xci": tr("Gli XCI si aprono con gli emulatori o si installano sulla console "
                               "con un installer di homebrew."),
-                    "nup": tr("I NUP si aprono con gli emulatori che supportano il formato.")}.get(
+                    "nup": tr("I NUP si aprono con gli emulatori che supportano il formato."),
+                    "nx": tr("Gli archivi NX si aprono con gli emulatori che supportano il "
+                             "formato.")}.get(
                 next(iter(kinds)) if len(kinds) == 1 else "",
                 tr("ExeFS e RomFS sono pronte: usale per mod e traduzioni (LayeredFS).")
                 if kinds == {"extract"} else tr("Tutte le operazioni sono state completate."))

@@ -1,4 +1,4 @@
-"""Reading NSP/XCI/NUP files into titles (game, update, DLC) and grouping them by game."""
+"""Reading NSP/XCI/NUP/NX files into titles (game, update, DLC) and grouping them by game."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ import os
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from . import meta, nup
+from . import meta, nup, nx
 from .fs import Cancelled, FileStorage, FormatError, Partition, Storage, SubStorage
 from .i18n import get_language, tr
 from .keys import KeySet, KeysError
 from .meta import Cnmt, ContentRecord, Nacp
 from .nca import Nca, NcaError
 
-EXTENSIONS = (".nsp", ".xci", ".nup", ".nsz", ".xcz")
+EXTENSIONS = (".nsp", ".xci", ".nup", ".nx", ".nsz", ".xcz")
 
 
 class Container:
@@ -105,8 +105,8 @@ class Container:
 
 @dataclass
 class Title:
-    path: str                 # NSP/XCI/NUP holding it
-    container: str            # nsp | xci | nup
+    path: str                 # NSP/XCI/NUP/NX holding it
+    container: str            # nsp | xci | nup | nx
     cnmt: Cnmt
     meta_file: str            # name of the .cnmt.nca
     meta_size: int
@@ -114,7 +114,10 @@ class Title:
     icon: Optional[bytes] = None
     missing: list[str] = field(default_factory=list)   # NCAs listed in the CNMT but absent
     nacp_raw: Optional[bytes] = None
+    icons: dict[int, bytes] = field(default_factory=dict)  # NACP language index -> image
     nup_index: Optional[int] = None    # package record, for NUP titles
+    nx_snapshot: Optional[int] = None  # Catalog snapshot index, for NX titles
+    platform: Optional[int] = None     # NX platform, when the source states it
     group_id: Optional[int] = None     # game it belongs to, when not derivable from its id
 
     @property
@@ -165,6 +168,14 @@ class Title:
                                                   meta.CONTENT_META, b"")))
         return out
 
+    def preferred_icon(self) -> Optional[bytes]:
+        """Icon in the interface language, else American English, else the first one."""
+        order = [Nacp.ITALIAN] if get_language() == "it" else []
+        for i in order + [0] + sorted(self.icons):
+            if i in self.icons:
+                return self.icons[i]
+        return None
+
     def program_nca(self, container: Container) -> Optional[str]:
         for rec in self.cnmt.contents:
             if rec.type == meta.CONTENT_PROGRAM:
@@ -183,13 +194,12 @@ class Title:
                 st = romfs.open(files["control.nacp"])
                 self.nacp_raw = st.read(0, st.size)
                 self.nacp = meta.parse_nacp(self.nacp_raw)
-            lang = "Italian" if get_language() == "it" else "AmericanEnglish"
-            for icon in [f"icon_{lang}.dat", "icon_AmericanEnglish.dat"] + \
-                    [p for p in files if p.startswith("icon_")]:
-                if icon in files:
-                    st = romfs.open(files[icon])
-                    self.icon = st.read(0, st.size)
-                    break
+            for i, lang in enumerate(Nacp.ICON_NAMES):
+                f = files.get(f"icon_{lang}.dat")
+                if f is not None and f.size:
+                    st = romfs.open(f)
+                    self.icons[i] = st.read(0, st.size)
+            self.icon = self.preferred_icon()
         except (FormatError, NcaError, KeysError, KeyError):
             pass  # name and icon are optional
 
@@ -200,7 +210,10 @@ def verify(path: str, keys: KeySet,
     """SHA-256 of every NCA against its CNMT record: [(file, ok|mismatch|missing)].
 
     Meaningful for NSPs: NCAs converted for an XCI have a different header, so they differ.
-    For a NUP: every file against its SHA-256 in the index (no keys needed)."""
+    For a NUP or NX: every file against its SHA-256 (no keys needed)."""
+    if nx.is_nx(path):
+        with nx.NxArchive(path) as a:
+            return a.verify(progress, should_cancel)
     if nup.is_nup(path):
         with nup.NupFile(path) as n:
             return n.verify(progress, should_cancel)
@@ -349,8 +362,9 @@ def nup_titles(path: str) -> list[Title]:
             t.nacp_raw = p.meta.get(nup.TLV_NACP)
             t.nacp = _nup_nacp(p.meta)
             icons = nup.decode_localized(p.meta.get(nup.TLV_LOCALIZED_ICONS, b""))
-            t.icon = (icons.get("it") if get_language() == "it" else None) or \
-                p.meta.get(nup.TLV_ICON) or icons.get("en-us")
+            t.icons = {nup.NACP_LANGS.index(tag): data for tag, data in icons.items()
+                       if tag in nup.NACP_LANGS and data}
+            t.icon = t.preferred_icon() or p.meta.get(nup.TLV_ICON)
             if kind != "game":
                 # The add-on id of Switch 2 titles does not give back the game's id.
                 t.group_id = base.title_id if base is not None else (
@@ -362,7 +376,52 @@ def nup_titles(path: str) -> list[Title]:
     return out
 
 
+NX_KINDS = {nx.SNAP_BASE: "game", nx.SNAP_UPDATE: "update", nx.SNAP_STANDALONE: "update",
+            nx.SNAP_DLC: "dlc"}
+
+
+def nx_titles(path: str) -> list[Title]:
+    with nx.NxArchive(path) as a:
+        out = []
+        for app in a.applications:
+            for s in app.snapshots:
+                kind = NX_KINDS.get(s.kind)
+                if kind is None:
+                    continue
+                tid = s.addon_title_id or app.application_id
+                if kind == "dlc" and not s.addon_title_id:
+                    # native DLC: its add-on id is not in the Catalog; keep it distinct
+                    tid = app.application_id + 0x1000 + s.index
+                t = Title(path, "nx", Cnmt(tid, s.version, kind), "", 0, nx_snapshot=s.index,
+                          group_id=app.application_id, platform=app.platform)
+                m = app.meta_of(s.index)
+                if m is not None:
+                    titles = {}
+                    for tag, name in m.localized.items():
+                        if tag in nx.NACP_LANGS:
+                            titles[nx.NACP_LANGS.index(tag)] = (name, m.publisher)
+                    if m.title:  # the default title, unless American English is listed
+                        titles.setdefault(0, (m.title, m.publisher))
+                    if m.nacp_media is not None:
+                        t.nacp_raw = a.media_bytes(m.nacp_media)
+                    t.nacp = Nacp(titles, s.display_version)
+                    t.icons = {nx.NACP_LANGS.index(tag): a.media_bytes(i)
+                               for tag, i in m.localized_icons.items() if tag in nx.NACP_LANGS}
+                    if m.icon_media is not None:
+                        t.icons.setdefault(0, a.media_bytes(m.icon_media))
+                    t.icon = t.preferred_icon()
+                elif s.display_version:
+                    t.nacp = Nacp({}, s.display_version)
+                out.append(t)
+    if not out:
+        raise FormatError(tr("{name}: l'archivio NX non contiene giochi, aggiornamenti o DLC.",
+                             name=os.path.basename(path)))
+    return out
+
+
 def read_titles(path: str, keys: Optional[KeySet]) -> list[Title]:
+    if nx.is_nx(path):
+        return nx_titles(path)
     if nup.is_nup(path):
         return nup_titles(path)
     if keys is None:

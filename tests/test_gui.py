@@ -74,13 +74,16 @@ class GuiSmoke(unittest.TestCase):
             w.start("extract")
             w.start("nup")
             w.start("nup")  # already queued: not added twice
-            self.assertEqual([r.job.kind for r in page.waiting()], ["extract", "nup"])
+            w.gamesPage.archiveRequested.emit("nx")
+            self.assertEqual([r.job.kind for r in page.waiting()], ["extract", "nup", "nx"])
             self.assertTrue(w.gamesPage.xciButton.isEnabled())  # the page stays usable
             page.move(page.waiting()[1], -1)
-            self.assertEqual([r.job.kind for r in page.waiting()], ["nup", "extract"])
+            self.assertEqual([r.job.kind for r in page.waiting()], ["nup", "extract", "nx"])
             self.wait_idle(app, w)
             self.assertEqual(page.title.text(), "Operazione completata")
-            self.assertEqual([r.state for r in page.rows], ["done"] * 3)
+            self.assertEqual([r.state for r in page.rows], ["done"] * 4)
+            (nx_file,) = out.glob("*.nx")
+            w.gamesPage.add_paths([str(nx_file)])  # opens without keys or errors
             (xci_file,) = out.glob("*.xci")
             self.assertEqual(xci_file.name, "Gui Test [0100ABCD00020000][v65536].xci")
             game = out / "Gui Test [0100ABCD00020000]"

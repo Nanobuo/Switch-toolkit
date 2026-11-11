@@ -5,18 +5,26 @@ Prima di creare una release aggiungi qui una sezione `## vX.Y.Z`.
 
 ## v1.1.0
 
+- **Supporto agli archivi NX** (`.nx`, [nxformat](https://github.com/fab918/nxformat)
+  1.0.2): si aprono, si estraggono e si creano da NSP, XCI, NUP o da altri NX
+  (**Crea archivio → NX**, o `switchtk-cli nx`). Gioco e aggiornamento
+  condividono i dati uguali, ogni blocco è verificato in lettura e il lettore
+  rispetta tutte le 61 prove di conformità ufficiali del formato. Gli archivi
+  NX "nativi" (con gli NCA decifrati) si estraggono così come sono.
+- **Più veloce**: compressione su più core (NX e NUP) e niente tentativi di
+  compressione inutili sui dati già compressi.
 - **Supporto ai file NUP** (`.nup`), il nuovo contenitore della comunità per i
   giochi Switch 1 e Switch 2 già decifrati (formato 1.0, ancora in bozza):
   - i NUP si aprono nella pagina Giochi con nome, icona e versione, e si
     possono **estrarre** ExeFS e RomFS, anche con l'aggiornamento applicato.
     Non servono chiavi;
-  - nuovo pulsante **Crea NUP**: decifra gioco, aggiornamento e DLC di NSP/XCI
-    e li unisce in un unico NUP compresso (zstd);
+  - **Crea archivio → NUP**: decifra gioco, aggiornamento e DLC di NSP/XCI e
+    li unisce in un unico NUP compresso (zstd);
   - verifica dell'integrità dei NUP da riga di comando (`verify`) e nuovo
     comando `nup`.
-- I NUP non possono essere convertiti in XCI: non contengono gli NCA cifrati
-  originali.
-- **Coda di lavoro**: «Crea XCI», «Crea NUP» ed «Estrai» si possono premere
+- NUP e NX non possono essere convertiti in XCI: non contengono gli NCA
+  cifrati originali.
+- **Coda di lavoro**: «Crea XCI», «Crea archivio» ed «Estrai» si possono premere
   anche mentre un'operazione è in corso; le nuove richieste si mettono in coda
   e partono da sole. Nella pagina **Avanzamento** le operazioni in attesa si
   possono spostare su e giù o togliere (**Svuota coda** le toglie tutte).

@@ -60,7 +60,7 @@ class MainWindow(FluentWindow):
                              NavigationItemPosition.BOTTOM)
 
         self.gamesPage.xciRequested.connect(lambda: self.start("xci"))
-        self.gamesPage.nupRequested.connect(lambda: self.start("nup"))
+        self.gamesPage.archiveRequested.connect(self.start)
         self.gamesPage.extractRequested.connect(lambda: self.start("extract"))
         self.gamesPage.keysNeeded.connect(lambda: self.switchTo(self.settingsPage))
         self.progressPage.cancelRequested.connect(self.cancel)
@@ -167,26 +167,27 @@ class MainWindow(FluentWindow):
             return
         out_dir = os.path.abspath(cfg.get(cfg.outputDir))
         games = list(self.gamesPage.games().values())
-        all_nup = all(t.container == "nup" for g in games for t in g.all_titles())
+        all_plain = all(jobs.decrypted(t) for g in games for t in g.all_titles())
         try:
             keys = self.keys()
         except KeysError as ex:
-            if not all_nup:  # NUP files are plain: no keys needed
+            if not all_plain:  # NUP and NX files are already decrypted: no keys needed
                 InfoBar.error(tr("Chiavi mancanti"), str(ex), duration=8000,
                               position=InfoBarPosition.TOP_RIGHT, parent=self)
                 return
             keys = None
-        if kind == "xci" and jobs.has_nup(games):
-            InfoBar.warning(tr("NUP esclusi"),
-                            tr("I file NUP non possono diventare XCI: contengono i dati già "
-                               "decifrati, senza gli NCA originali."),
+        if kind == "xci" and jobs.has_decrypted(games):
+            InfoBar.warning(tr("NUP e NX esclusi"),
+                            tr("I file NUP e NX non possono diventare XCI: contengono i dati "
+                               "già decifrati, senza gli NCA originali."),
                             duration=7000, position=InfoBarPosition.TOP_RIGHT, parent=self)
         if kind == "xci":
             todo = jobs.xci_jobs(games, out_dir, cfg.get(cfg.mergeXci),
                                  cfg.get(cfg.includeUpdate), cfg.get(cfg.includeDlc))
-        elif kind == "nup":
-            todo = jobs.nup_jobs(games, out_dir, cfg.get(cfg.mergeXci),
-                                 cfg.get(cfg.includeUpdate), cfg.get(cfg.includeDlc))
+        elif kind in ("nup", "nx"):
+            make = jobs.nup_jobs if kind == "nup" else jobs.nx_jobs
+            todo = make(games, out_dir, cfg.get(cfg.mergeXci), cfg.get(cfg.includeUpdate),
+                        cfg.get(cfg.includeDlc))
         else:
             if not (cfg.get(cfg.extractExefs) or cfg.get(cfg.extractRomfs)):
                 InfoBar.warning(tr("Niente da estrarre"),
@@ -220,7 +221,7 @@ class MainWindow(FluentWindow):
             box.cancelButton.setText(tr("Annulla"))
             if not box.exec():
                 return
-        if kind in ("xci", "nup") and not self._space_ok(todo, out_dir):
+        if kind != "extract" and not self._space_ok(todo, out_dir):
             return
         running = self.progressPage.busy()
         self.progressPage.enqueue(todo, keys, out_dir)

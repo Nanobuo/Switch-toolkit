@@ -16,6 +16,15 @@ class FormatError(Exception):
     pass
 
 
+def zstd():
+    """The zstandard module (NUP and NX use it)."""
+    try:
+        import zstandard
+    except ImportError as ex:  # pragma: no cover - dependency of the program
+        raise FormatError(tr("Manca il modulo zstandard, necessario per i file NUP e NX.")) from ex
+    return zstandard
+
+
 class Cancelled(Exception):
     pass
 

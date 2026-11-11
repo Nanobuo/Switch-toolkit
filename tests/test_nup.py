@@ -210,7 +210,7 @@ class Nup(unittest.TestCase):
             self.assertEqual(pathlib.Path(dest, "romfs", path).read_bytes(), data, path)
         self.assertEqual(pathlib.Path(dest, "exefs", "main.npdm").read_bytes(), b"META2")
         self.assertEqual(jobs.xci_jobs([game], self.p("o")), [])   # no NCAs inside
-        self.assertTrue(jobs.has_nup([game]))
+        self.assertTrue(jobs.has_decrypted([game]))
 
         # Command line: info and extraction of a NUP without any prod.keys.
         os.environ["SWITCHTK_KEYS"] = self.p("missing.keys")

@@ -14,8 +14,9 @@ import struct
 from dataclasses import dataclass, field
 from typing import BinaryIO, Callable, Iterator, Optional
 
-from .fs import CHUNK, Cancelled, FileStorage, FormatError, Storage
+from .fs import CHUNK, Cancelled, FileStorage, FormatError, Storage, zstd
 from .i18n import tr
+from .meta import LANGUAGE_TAGS
 
 MAGIC = b"NUP\x01"
 TOC_MAGIC = b"TOC\x01"
@@ -30,9 +31,7 @@ TLV_NPDM, TLV_NACP, TLV_ICON, TLV_DISPLAY_VERSION = 0x1, 0x2, 0x3, 0x4
 TLV_TITLE_NAME, TLV_PUBLISHER, TLV_BUILD_ID, TLV_SOURCE = 0x5, 0x6, 0x7, 0x8
 TLV_LOCALIZED_TITLES, TLV_LOCALIZED_ICONS = 0x9, 0xA
 
-# NACP title index -> BCP-47 tag (SPEC appendix B)
-NACP_LANGS = ("en-us", "en-gb", "ja", "fr", "de", "es-419", "es", "it", "nl", "fr-ca", "pt",
-              "ru", "ko", "zh-hant", "zh-hans", "pt-br")
+NACP_LANGS = LANGUAGE_TAGS
 
 _super = struct.Struct("<4sHHQQ32sQQII16s32s")
 _toc_head = struct.Struct("<4sIQQQQQ")
@@ -52,17 +51,9 @@ def _align(n: int) -> int:
     return (n + ALIGN - 1) & ~(ALIGN - 1)
 
 
-def _zstd():
-    try:
-        import zstandard
-    except ImportError as ex:  # pragma: no cover - dependency of the program
-        raise NupError(tr("Manca il modulo zstandard, necessario per i file NUP.")) from ex
-    return zstandard
-
-
 def zstd_version() -> str:
     try:
-        return ".".join(map(str, _zstd().ZSTD_VERSION))
+        return ".".join(map(str, zstd().ZSTD_VERSION))
     except NupError:
         return ""
 
@@ -150,7 +141,7 @@ class Entry(Storage):
                 done += len(piece)
                 yield piece
         else:
-            dobj = _zstd().ZstdDecompressor().decompressobj()
+            dobj = zstd().ZstdDecompressor().decompressobj()
             for piece in raw.chunks(0, None, chunk):
                 out = dobj.decompress(piece)
                 done += len(out)
@@ -164,9 +155,30 @@ class Entry(Storage):
                               name=self.name))
 
     def read(self, offset: int, size: int) -> bytes:
-        if self._data is None:
-            self._data = b"".join(self.chunks())
-        return self._data[offset:offset + size]
+        size = max(0, min(size, self.size - offset))
+        if self.codec == CODEC_RAW:  # stored as is: read the range directly
+            return FileStorage(self.nup.f, self.offset, self.stored).read(offset, size)
+        if self.size <= SMALL_FILE:  # NACP, icons, NPDM...: decode once and keep
+            if self._data is None:
+                self._data = b"".join(self.chunks())
+            return self._data[offset:offset + size]
+        # a large compressed file is never held in memory: decode up to the range
+        out = bytearray()
+        pos = 0
+        for piece in self._decoded():
+            if pos + len(piece) > offset:
+                out += piece[max(0, offset - pos):offset + size - pos]
+            pos += len(piece)
+            if pos >= offset + size:
+                break
+        return bytes(out)
+
+    def _decoded(self) -> Iterator[bytes]:
+        dobj = zstd().ZstdDecompressor().decompressobj()
+        for piece in FileStorage(self.nup.f, self.offset, self.stored).chunks():
+            out = dobj.decompress(piece)
+            if out:
+                yield out
 
 
 class NupFile:
@@ -287,7 +299,13 @@ class NupFile:
         return Entry(self, name, size, sha, eoff, esize, codec)
 
     def tree(self, pkg: Package, which: str) -> dict[str, Entry]:
-        d = pkg.exefs if which == "exefs" else pkg.romfs
+        """exefs, romfs, or data (the optional root/data/ tree)."""
+        if which == "data":
+            _n, first, kids = self.dirs[pkg.root]
+            d = next((c for c in self.children[first:first + kids]
+                      if c < self.ndirs and self.dirs[c][0] == "data"), NO_DIR)
+        else:
+            d = pkg.exefs if which == "exefs" else pkg.romfs
         return {path: self.open(i) for path, i in self.walk(d)}
 
     def verify(self, progress: Optional[Callable[[int, int], None]] = None,
@@ -343,6 +361,7 @@ class NewPackage:
     exefs: dict[str, Storage] = field(default_factory=dict)
     romfs: dict[str, Storage] = field(default_factory=dict)
     meta: dict[int, bytes] = field(default_factory=dict)
+    data: dict[str, Storage] = field(default_factory=dict)   # root/data/...
 
 
 class _Dir:
@@ -362,15 +381,17 @@ def write_nup(path: str, packages: list[NewPackage], level: int = 3,
               progress: Optional[Callable[[int, int, str], None]] = None,
               should_cancel: Optional[Callable[[], bool]] = None) -> str:
     """Write the packages to path (through a temporary .part file). Returns path."""
-    zstd = _zstd()
-    cctx = zstd.ZstdCompressor(level=level, write_content_size=True)
+    z = zstd()
+    cctx = z.ZstdCompressor(level=level, write_content_size=True)
+    # Large files: one frame still (as the format requires), built on every core.
+    cctx_mt = z.ZstdCompressor(level=level, write_content_size=True, threads=-1)
 
     # Trees: package root -> exefs/, romfs/ -> files. File records in insertion order.
     sources: list[tuple[str, Storage]] = []
     roots = []
     for pkg in packages:
         root = _Dir(b"")
-        for top, files in (("exefs", pkg.exefs), ("romfs", pkg.romfs)):
+        for top, files in (("exefs", pkg.exefs), ("romfs", pkg.romfs), ("data", pkg.data)):
             if not files:
                 continue
             base = root.child(top.encode())
@@ -433,7 +454,8 @@ def write_nup(path: str, packages: list[NewPackage], level: int = 3,
             for rel, st in sources:
                 if should_cancel and should_cancel():
                     raise Cancelled()
-                rec = _write_extent(out, st, cctx, zstd, seen, should_cancel)
+                rec = _write_extent(out, st, cctx if st.size <= SMALL_FILE else cctx_mt, z,
+                                    seen, should_cancel)
                 records.append(rec)
                 done += st.size
                 if progress:
@@ -491,7 +513,7 @@ def _pad(out: BinaryIO) -> int:
     return start
 
 
-def _write_extent(out: BinaryIO, st: Storage, cctx, zstd, seen: dict,
+def _write_extent(out: BinaryIO, st: Storage, cctx, z, seen: dict,
                   should_cancel) -> tuple[int, bytes, int, int, int]:
     """(size, sha256, extent offset, extent size, codec); identical files share one extent."""
     size = st.size
@@ -516,7 +538,7 @@ def _write_extent(out: BinaryIO, st: Storage, cctx, zstd, seen: dict,
                 raise Cancelled()
             h.update(piece)
             writer.write(piece)
-        writer.flush(zstd.FLUSH_FRAME)
+        writer.flush(z.FLUSH_FRAME)
         sha = h.digest()
         codec = CODEC_ZSTD
         if sha in seen or out.tell() - start >= size:

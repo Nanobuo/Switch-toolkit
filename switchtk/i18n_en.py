@@ -303,23 +303,12 @@ EN = {
     "Riprova": "Retry",
 
     # -- NUP -----------------------------------------------------------------------
-    "Coltellino svizzero per i file Nintendo Switch: NSP → XCI o NUP, unione di gioco, "
-    "aggiornamenti e DLC, estrazione di ExeFS e RomFS.":
-        "Swiss army knife for Nintendo Switch files: NSP → XCI or NUP, merging of game, updates "
-        "and DLC, ExeFS and RomFS extraction.",
-    "mostra i contenuti di file NSP/XCI/NUP": "show the contents of NSP/XCI/NUP files",
-    "verifica l'integrità (SHA-256) di NSP e NUP":
-        "check the integrity (SHA-256) of NSPs and NUPs",
     "crea un NUP (file decifrati e compressi) con gioco, aggiornamento e DLC":
         "create a NUP (decrypted, compressed files) with game, update and DLC",
     "un NUP per ogni file, senza unire": "one NUP per file, without merging",
     "livello di compressione zstd (predefinito 3)": "zstd compression level (default 3)",
-    "i file NUP non possono diventare XCI (contengono dati già decifrati, senza gli NCA): "
-    "vengono ignorati.":
-        "NUP files cannot become XCIs (they hold decrypted data, without the NCAs): skipped.",
-    "Nessun file NSP/XCI/NUP trovato.": "No NSP/XCI/NUP files found.",
-    "Manca il modulo zstandard, necessario per i file NUP.":
-        "The zstandard module, needed for NUP files, is missing.",
+    "Manca il modulo zstandard, necessario per i file NUP e NX.":
+        "The zstandard module, needed for NUP and NX files, is missing.",
     "{name}: file danneggiato nel NUP (impronta SHA-256 diversa).":
         "{name}: damaged file in the NUP (SHA-256 differs).",
     "{name}: file NUP non valido.": "{name}: invalid NUP file.",
@@ -333,8 +322,6 @@ EN = {
         "{name}: the NUP holds no game, update or DLC.",
     "I NUP contengono i singoli file: estraggo la cartella romfs invece di romfs.bin.":
         "NUPs hold the individual files: extracting the romfs folder instead of romfs.bin.",
-    "Trascina qui i file NSP, XCI o NUP (gioco, aggiornamenti, DLC, in qualsiasi ordine) oppure":
-        "Drop NSP, XCI or NUP files here (game, updates, DLC, in any order) or",
     "Nessun file aggiunto. Aggiungi insieme gioco base, aggiornamenti e DLC: vengono "
     "raggruppati per gioco. «Crea XCI» li unisce in un unico XCI (o converte un singolo NSP), "
     "«Crea NUP» in un unico NUP con i file già decifrati, «Estrai» salva ExeFS e RomFS con "
@@ -344,28 +331,9 @@ EN = {
         "into a single NUP with the files already decrypted, \"Extract\" saves ExeFS and RomFS "
         "with the update already applied.",
     "Crea NUP": "Create NUP",
-    "File unico con i dati già decifrati e compressi, per gli emulatori che supportano il "
-    "formato NUP":
-        "Single file with the data already decrypted and compressed, for emulators that support "
-        "the NUP format",
-    "Nessun file NSP, XCI o NUP tra quelli scelti.":
-        "No NSP, XCI or NUP files among the chosen ones.",
-    "Seleziona i file NSP/XCI/NUP": "Select the NSP/XCI/NUP files",
-    "File Switch (*.nsp *.xci *.nup);;Tutti i file (*)":
-        "Switch files (*.nsp *.xci *.nup);;All files (*)",
-    "Cartella con file NSP/XCI/NUP": "Folder with NSP/XCI/NUP files",
     "I NUP si aprono con gli emulatori che supportano il formato.":
         "NUPs open in emulators that support the format.",
-    "NUP esclusi": "NUPs skipped",
-    "I file NUP non possono diventare XCI: contengono i dati già decifrati, senza gli NCA "
-    "originali.":
-        "NUP files cannot become XCIs: they hold the decrypted data, without the original NCAs.",
-    "Creazione XCI e NUP": "XCI and NUP creation",
     "Unisci in un unico file": "Merge into a single file",
-    "Gioco base, ultimo aggiornamento e DLC dello stesso gioco in un solo XCI o NUP. Se "
-    "disattivato ogni file diventa un XCI o NUP separato.":
-        "Base game, latest update and DLC of the same game in one XCI or NUP. When off, every "
-        "file becomes a separate XCI or NUP.",
 
     # -- job queue -----------------------------------------------------------------
     "Aggiungi i file nella pagina Giochi e premi «Crea XCI», «Crea NUP» o «Estrai "
@@ -397,4 +365,90 @@ EN = {
     "Aggiorna quando la coda è finita.": "Update once the queue is finished.",
     "Vuoi interrompere l'operazione, togliere le {n} in coda e uscire?":
         "Stop the operation, remove the {n} queued and quit?",
+
+    # -- NX ------------------------------------------------------------------------
+    "Coltellino svizzero per i file Nintendo Switch: NSP → XCI, NUP o NX, unione di gioco, "
+    "aggiornamenti e DLC, estrazione di ExeFS e RomFS.":
+        "Swiss army knife for Nintendo Switch files: NSP → XCI, NUP or NX, merging of game, "
+        "updates and DLC, ExeFS and RomFS extraction.",
+    "mostra i contenuti di file NSP/XCI/NUP/NX": "show the contents of NSP/XCI/NUP/NX files",
+    "verifica l'integrità di NSP, NUP e NX": "check the integrity of NSPs, NUPs and NXs",
+    "crea un archivio NX (file decifrati, blocchi compressi e deduplicati) con gioco, "
+    "aggiornamento e DLC":
+        "create an NX archive (decrypted files, compressed and deduplicated blocks) with game, "
+        "update and DLC",
+    "un NX per ogni file, senza unire": "one NX per file, without merging",
+    "file NSP/XCI/NUP/NX o cartelle (in qualsiasi ordine)":
+        "NSP/XCI/NUP/NX files or folders (in any order)",
+    "blocchi non compressi: archivio più grande, letture più veloci":
+        "uncompressed blocks: bigger archive, faster reads",
+    "i file NUP e NX non possono diventare XCI (contengono dati già decifrati, senza gli "
+    "NCA): vengono ignorati.":
+        "NUP and NX files cannot become XCIs (they hold decrypted data, without the NCAs): "
+        "skipped.",
+    "Nessun file NSP/XCI/NUP/NX trovato.": "No NSP/XCI/NUP/NX files found.",
+    "Archivio NX «nativo»: contiene gli NCA già decifrati, non ExeFS e RomFS. Estraggo i file "
+    "così come sono.":
+        "\"Native\" NX archive: it holds the decrypted NCAs, not ExeFS and RomFS. Extracting "
+        "the files as they are.",
+    "Catalogo NX troppo grande.": "NX catalog too large.",
+    "Dati media troppo grandi per un archivio NX.": "Media data too large for an NX archive.",
+    "Due versioni identiche dello stesso gioco: impossibile crearne l'archivio NX.":
+        "Two identical versions of the same game: cannot create the NX archive.",
+    "Nome di file non ammesso in un archivio NX: {name}":
+        "File name not allowed in an NX archive: {name}",
+    "{n} blocchi": "{n} blocks",
+    "Il file {name} è cambiato durante la conversione.":
+        "The file {name} changed during the conversion.",
+    "{name}: albero delle cartelle NX non valido.": "{name}: invalid NX folder tree.",
+    "{name}: archivio NX non valido.": "{name}: invalid NX archive.",
+    "{name}: archivio NX troncato.": "{name}: truncated NX archive.",
+    "{name}: blocco di dati NX danneggiato.": "{name}: damaged NX data block.",
+    "{name}: catalogo NX danneggiato.": "{name}: damaged NX catalog.",
+    "{name}: catalogo NX non valido.": "{name}: invalid NX catalog.",
+    "{name}: dati media NX danneggiati.": "{name}: damaged NX media data.",
+    "{name}: estensione NX obbligatoria non supportata.":
+        "{name}: unsupported required NX extension.",
+    "{name}: funzione NX non supportata.": "{name}: unsupported NX feature.",
+    "{name}: indice dei blocchi NX danneggiato.": "{name}: damaged NX block index.",
+    "{name}: indice dei blocchi NX non valido.": "{name}: invalid NX block index.",
+    "{name}: intestazioni NX in conflitto.": "{name}: conflicting NX headers.",
+    "{name}: l'archivio NX non contiene giochi, aggiornamenti o DLC.":
+        "{name}: the NX archive holds no game, update or DLC.",
+    "{name}: manifest NX danneggiato.": "{name}: damaged NX manifest.",
+    "{name}: manifest NX non valido.": "{name}: invalid NX manifest.",
+    "{name}: nessuna intestazione NX valida.": "{name}: no valid NX header.",
+    "{name}: percorso non valido nell'archivio NX.": "{name}: invalid path in the NX archive.",
+    "{name}: regione media NX non valida.": "{name}: invalid NX media region.",
+    "{name}: regioni dell'archivio NX non valide.": "{name}: invalid NX archive regions.",
+    "{name}: stringa non valida nel catalogo NX.": "{name}: invalid string in the NX catalog.",
+    "{name}: troppi blocchi.": "{name}: too many blocks.",
+    "{name}: versione NX non supportata.": "{name}: unsupported NX version.",
+    "Trascina qui i file NSP, XCI, NUP o NX (gioco, aggiornamenti, DLC, in qualsiasi ordine) "
+    "oppure":
+        "Drop NSP, XCI, NUP or NX files here (game, updates, DLC, in any order) or",
+    "Crea archivio": "Create archive",
+    "File unico con i dati già decifrati, per gli emulatori che supportano NUP o NX":
+        "Single file with the data already decrypted, for emulators that support NUP or NX",
+    "NX (consigliato: letture veloci, aggiornamenti condivisi)":
+        "NX (recommended: fast reads, shared updates)",
+    "Nessun file NSP, XCI, NUP o NX tra quelli scelti.":
+        "No NSP, XCI, NUP or NX files among the chosen ones.",
+    "Seleziona i file NSP/XCI/NUP/NX": "Select the NSP/XCI/NUP/NX files",
+    "File Switch (*.nsp *.xci *.nup *.nx);;Tutti i file (*)":
+        "Switch files (*.nsp *.xci *.nup *.nx);;All files (*)",
+    "Cartella con file NSP/XCI/NUP/NX": "Folder with NSP/XCI/NUP/NX files",
+    "Crea NX": "Create NX",
+    "Gli archivi NX si aprono con gli emulatori che supportano il formato.":
+        "NX archives open in emulators that support the format.",
+    "NUP e NX esclusi": "NUP and NX skipped",
+    "I file NUP e NX non possono diventare XCI: contengono i dati già decifrati, senza gli "
+    "NCA originali.":
+        "NUP and NX files cannot become XCIs: they hold the decrypted data, without the "
+        "original NCAs.",
+    "Creazione di XCI e archivi": "XCI and archive creation",
+    "Gioco base, ultimo aggiornamento e DLC dello stesso gioco in un solo file. Se "
+    "disattivato ogni file diventa un XCI, NUP o NX separato.":
+        "Base game, latest update and DLC of the same game in one file. When off, every file "
+        "becomes a separate XCI, NUP or NX.",
 }

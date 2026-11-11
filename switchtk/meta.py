@@ -81,6 +81,11 @@ def parse_cnmt(data: bytes) -> Cnmt:
     return cnmt
 
 
+# NACP language order -> BCP 47 tag (as NUP and NX store them)
+LANGUAGE_TAGS = ("en-us", "en-gb", "ja", "fr", "de", "es-419", "es", "it", "nl", "fr-ca", "pt",
+                 "ru", "ko", "zh-hant", "zh-hans", "pt-br")
+
+
 @dataclass
 class Nacp:
     titles: dict[int, tuple[str, str]]   # language index -> (name, publisher)
