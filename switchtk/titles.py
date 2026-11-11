@@ -297,7 +297,9 @@ class Game:
 
     def warnings(self) -> list[str]:
         out = []
-        if self.base is None:
+        if self.base is None and not self.updates:
+            out.append(tr("Contiene solo DLC: per giocarli serve anche il gioco base."))
+        elif self.base is None:
             out.append(tr("Manca il gioco base: l'XCI conterrà solo aggiornamenti/DLC e "
                           "l'estrazione della RomFS dell'aggiornamento non è possibile."))
         if len(self.updates) > 1:
@@ -326,7 +328,25 @@ def group_titles(titles: list[Title]) -> dict[int, Game]:
             g.dlcs.append(t)
     for g in games.values():
         g.updates.sort(key=lambda t: t.version)
+    _attach_orphan_dlc(games)
     return games
+
+
+def _attach_orphan_dlc(games: dict[int, Game]) -> None:
+    """DLC whose game id cannot be derived from its own id (Switch 2 upgrade packs,
+    add-ons an archive keeps in a separate application) would show as a game without
+    base. When they come from the same file as exactly one game, they belong to it."""
+    for gid, g in list(games.items()):
+        if g.base or g.updates or not g.dlcs:
+            continue
+        paths = {t.path for t in g.dlcs}
+        owners = [o for o in games.values()
+                  if o is not g and (o.base or o.updates)
+                  and paths & {t.path for t in o.all_titles()}]
+        if len(owners) == 1:
+            owners[0].dlcs += g.dlcs
+            owners[0].dlcs.sort(key=lambda t: t.title_id)
+            del games[gid]
 
 
 NUP_KINDS = {nup.KIND_BASE: "game", nup.KIND_UPDATE: "update", nup.KIND_ADDON: "dlc"}
@@ -388,7 +408,8 @@ def nx_titles(path: str) -> list[Title]:
                 kind = NX_KINDS.get(s.kind)
                 if kind is None:
                     continue
-                tid = s.addon_title_id or app.application_id
+                # executable snapshots: their program (several in multi-program games)
+                tid = s.addon_title_id or s.program_id or app.application_id
                 if kind == "dlc" and not s.addon_title_id:
                     # native DLC: its add-on id is not in the Catalog; keep it distinct
                     tid = app.application_id + 0x1000 + s.index

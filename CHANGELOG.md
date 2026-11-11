@@ -3,6 +3,16 @@
 Ogni release pubblica come descrizione la sezione della propria versione.
 Prima di creare una release aggiungi qui una sezione `## vX.Y.Z`.
 
+## v1.1.1
+
+- Corretto l'avviso «Manca il gioco base» su archivi NX che contengono il
+  gioco: i DLC tenuti in un'applicazione separata (ad esempio i pacchetti
+  Nintendo Switch 2 Edition) ora vengono uniti al gioco dello stesso file.
+- Un gioco con soli DLC mostra ora un avviso chiaro («Contiene solo DLC»).
+- Gli archivi NX con la prima intestazione danneggiata vengono riconosciuti
+  (si usa la copia di riserva).
+- Nei giochi con più programmi tutti i programmi compaiono nell'elenco.
+
 ## v1.1.0
 
 - **Supporto agli archivi NX** (`.nx`, [nxformat](https://github.com/fab918/nxformat)

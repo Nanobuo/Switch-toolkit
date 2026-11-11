@@ -65,6 +65,35 @@ class Conformance(unittest.TestCase):
         (t,) = titles.read_titles(str(FIXTURES / "localized_metadata_icons.nx"), None)
         self.assertEqual((t.kind, t.name), ("game", "Example"))
 
+    def test_dlc_in_a_separate_application(self):
+        """An archive may keep add-ons (e.g. a Switch 2 upgrade pack) in an application of
+        their own: they still belong to the game in the same file, with no warning."""
+        with tempfile.TemporaryDirectory() as d:
+            w = nx.NxWriter(os.path.join(d, "two.nx"))
+            game = w.add_file("exefs/main.npdm", MemoryStorage(b"META"))
+            pack = w.add_file("romfs/pack.bin", MemoryStorage(b"PACK"))
+            meta = nx.Meta(title="Gioco", localized={"en-us": ("Gioco", None)})
+            out = w.finish([
+                nx.NewApplication(TID, nx.PLATFORM_SWITCH1, [
+                    nx.NewSnapshot(nx.SNAP_BASE, 0, {"exefs/main.npdm": game}, meta=meta)]),
+                nx.NewApplication(0x0400ABCD00012000, nx.PLATFORM_SWITCH2, [
+                    nx.NewSnapshot(nx.SNAP_DLC, 0, {"romfs/pack.bin": pack}, executable=False,
+                                   addon_title_id=0x0400ABCD00013001)]),
+            ])
+            games = titles.group_titles(titles.read_titles(out, None))
+            self.assertEqual(list(games), [TID])
+            self.assertEqual(len(games[TID].dlcs), 1)
+            self.assertEqual(games[TID].warnings(), [])
+            # read_titles recognizes an archive whose first header page is lost
+            raw = bytearray(pathlib.Path(out).read_bytes())
+            raw[:4096] = bytes(4096)
+            pathlib.Path(out).write_bytes(raw)
+            self.assertEqual(len(titles.read_titles(out, None)), 2)
+        (only,) = titles.group_titles(
+            titles.read_titles(str(FIXTURES / "dlc_only_application.nx"), None)).values()
+        self.assertEqual(only.warnings(),
+                         ["Contiene solo DLC: per giocarli serve anche il gioco base."])
+
     def test_crc32c_and_languages(self):
         self.assertEqual(nx.crc32c(b"123456789"), 0xE3069283)
         self.assertTrue(nx.valid_language("zh-hant"))

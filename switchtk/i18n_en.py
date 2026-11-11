@@ -104,6 +104,8 @@ EN = {
     "cumulativi.":
         "Several updates: only the latest ({version}) is used, updates are cumulative.",
     "Gli aggiornamenti delta non sono supportati.": "Delta updates are not supported.",
+    "Contiene solo DLC: per giocarli serve anche il gioco base.":
+        "DLC only: the base game is needed to play them.",
     "Nessun contenuto da convertire.": "Nothing to convert.",
     "Preparazione di {name}…": "Preparing {name}…",
     "Spazio insufficiente in {path}: servono {needed:.1f} GB, liberi {free:.1f} GB.":

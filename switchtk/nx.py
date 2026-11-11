@@ -959,8 +959,12 @@ class NxFileStorage(Storage):
 
 
 def is_nx(path: str) -> bool:
+    """Either header copy is enough: the archive may have lost one of its pages."""
     try:
         with open(path, "rb") as f:
+            if f.read(4) == MAGIC:
+                return True
+            f.seek(PAGE)
             return f.read(4) == MAGIC
     except OSError:
         return False
