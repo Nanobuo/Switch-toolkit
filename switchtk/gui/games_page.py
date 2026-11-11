@@ -259,13 +259,6 @@ class GamesPage(QWidget):
         self.titles.clear()
         self.refresh()
 
-    def set_busy(self, busy: bool) -> None:
-        for w in (self.drop, self.clearButton, self.xciButton, self.nupButton, self.extractButton,
-                  self.destButton):
-            w.setEnabled(not busy)
-        for c in self.cards:
-            c.setEnabled(not busy)
-
     def refresh(self) -> None:
         for c in self.cards:
             self.cardsLayout.removeWidget(c)

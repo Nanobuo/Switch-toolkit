@@ -16,6 +16,12 @@ Prima di creare una release aggiungi qui una sezione `## vX.Y.Z`.
     comando `nup`.
 - I NUP non possono essere convertiti in XCI: non contengono gli NCA cifrati
   originali.
+- **Coda di lavoro**: «Crea XCI», «Crea NUP» ed «Estrai» si possono premere
+  anche mentre un'operazione è in corso; le nuove richieste si mettono in coda
+  e partono da sole. Nella pagina **Avanzamento** le operazioni in attesa si
+  possono spostare su e giù o togliere (**Svuota coda** le toglie tutte).
+  **Annulla** ferma solo quella in corso e un errore non blocca le successive:
+  alla fine un riepilogo indica quali non sono riuscite.
 
 ## v1.0.1
 

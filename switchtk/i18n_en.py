@@ -158,12 +158,7 @@ EN = {
     "In attesa": "Waiting",
     "Completato": "Done",
     "Nessuna operazione in corso": "Nothing in progress",
-    "Aggiungi i file nella pagina Giochi e premi «Crea XCI» o «Estrai ExeFS/RomFS».":
-        "Add files in the Games page and press \"Create XCI\" or \"Extract ExeFS/RomFS\".",
     "Annulla": "Cancel",
-    "Creazione XCI in corso": "Creating XCI",
-    "Estrazione in corso": "Extracting",
-    "{n} operazioni → {dest}": "{n} operations → {dest}",
     "Preparazione…": "Preparing…",
     "Sto scrivendo: {name}": "Writing: {name}",
     "{size} scritti": "{size} written",
@@ -178,8 +173,6 @@ EN = {
         "ExeFS and RomFS are ready: use them for mods and translations (LayeredFS).",
     "Fatto": "Done",
     "Apri cartella": "Open folder",
-    "Operazione interrotta": "Operation interrupted",
-    "Interrotto": "Interrupted",
     "Errore": "Error",
 
     # -- GUI: settings -------------------------------------------------------------
@@ -263,7 +256,6 @@ EN = {
     "Controllo aggiornamenti: {message}": "Update check: {message}",
     "Controllo non riuscito": "Check failed",
     "Operazione in corso": "Operation in progress",
-    "Aggiorna al termine dell'operazione.": "Update once the operation is over.",
     "Riavvio necessario": "Restart needed",
     "La nuova lingua verrà usata al prossimo avvio.":
         "The new language will be used at the next start.",
@@ -362,7 +354,6 @@ EN = {
     "File Switch (*.nsp *.xci *.nup);;Tutti i file (*)":
         "Switch files (*.nsp *.xci *.nup);;All files (*)",
     "Cartella con file NSP/XCI/NUP": "Folder with NSP/XCI/NUP files",
-    "Creazione NUP in corso": "Creating NUP",
     "I NUP si aprono con gli emulatori che supportano il formato.":
         "NUPs open in emulators that support the format.",
     "NUP esclusi": "NUPs skipped",
@@ -375,4 +366,35 @@ EN = {
     "disattivato ogni file diventa un XCI o NUP separato.":
         "Base game, latest update and DLC of the same game in one XCI or NUP. When off, every "
         "file becomes a separate XCI or NUP.",
+
+    # -- job queue -----------------------------------------------------------------
+    "Aggiungi i file nella pagina Giochi e premi «Crea XCI», «Crea NUP» o «Estrai "
+    "ExeFS/RomFS». Puoi aggiungere altre operazioni anche mentre una è in corso: si mettono "
+    "in coda.":
+        "Add files in the Games page and press \"Create XCI\", \"Create NUP\" or \"Extract "
+        "ExeFS/RomFS\". You can add more operations while one is running: they are queued.",
+    "Aggiunto alla coda": "Added to the queue",
+    "Vedi coda": "Show queue",
+    "{n} operazioni in attesa: partiranno al termine di quella in corso.":
+        "{n} operations waiting: they start when the current one ends.",
+    "Già in coda": "Already queued",
+    "Le operazioni già in coda non vengono aggiunte di nuovo.":
+        "Operations already in the queue are not added again.",
+    "Svuota coda": "Clear queue",
+    "Togli le operazioni in attesa": "Remove the waiting operations",
+    "Interrompe l'operazione in corso; la coda prosegue":
+        "Stops the running operation; the queue goes on",
+    "Sposta su": "Move up",
+    "Sposta giù": "Move down",
+    "Togli dalla coda": "Remove from the queue",
+    "Annullato": "Cancelled",
+    "Operazione in corso · {n} in coda": "Operation in progress · {n} queued",
+    "Destinazione: {dest}": "Destination: {dest}",
+    "Coda terminata: {ok} completate, {bad} non riuscite":
+        "Queue finished: {ok} completed, {bad} failed",
+    "Tutte le operazioni sono state completate.": "All operations were completed.",
+    "{n} operazioni non riuscite.": "{n} operations failed.",
+    "Aggiorna quando la coda è finita.": "Update once the queue is finished.",
+    "Vuoi interrompere l'operazione, togliere le {n} in coda e uscire?":
+        "Stop the operation, remove the {n} queued and quit?",
 }

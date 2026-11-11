@@ -146,8 +146,8 @@ class MainWindow(FluentWindow):
                             position=InfoBarPosition.TOP_RIGHT, parent=self)
 
     def show_update(self, release) -> None:
-        if self.worker and self.worker.isRunning():
-            InfoBar.warning(tr("Operazione in corso"), tr("Aggiorna al termine dell'operazione."),
+        if self.progressPage.busy():
+            InfoBar.warning(tr("Operazione in corso"), tr("Aggiorna quando la coda è finita."),
                             duration=4000, position=InfoBarPosition.TOP_RIGHT, parent=self)
             return
         UpdateDialog(release, self).exec()
@@ -196,6 +196,14 @@ class MainWindow(FluentWindow):
             todo = jobs.extract_jobs(games, out_dir, cfg.get(cfg.extractExefs),
                                      cfg.get(cfg.extractRomfs), cfg.get(cfg.romfsBin),
                                      cfg.get(cfg.applyUpdate))
+        queued = self.progressPage.queued_targets()
+        if any(os.path.normcase(j.target) in queued for j in todo):
+            InfoBar.info(tr("Già in coda"), tr("Le operazioni già in coda non vengono aggiunte "
+                                               "di nuovo."),
+                         duration=4000, position=InfoBarPosition.TOP_RIGHT, parent=self)
+            todo = [j for j in todo if os.path.normcase(j.target) not in queued]
+            if not todo:
+                return
         if not todo:
             if kind != "xci":
                 InfoBar.warning(tr("Niente da fare"),
@@ -214,21 +222,51 @@ class MainWindow(FluentWindow):
                 return
         if kind in ("xci", "nup") and not self._space_ok(todo, out_dir):
             return
-        self.worker = JobWorker(todo, keys, self)
+        running = self.progressPage.busy()
+        self.progressPage.enqueue(todo, keys, out_dir)
+        if running:
+            bar = InfoBar(InfoBarIcon.SUCCESS, tr("Aggiunto alla coda"),
+                          tr("{n} operazioni in attesa: partiranno al termine di quella in "
+                             "corso.", n=len(self.progressPage.waiting())),
+                          isClosable=True, duration=5000, position=InfoBarPosition.TOP_RIGHT,
+                          parent=self)
+            button = PushButton(tr("Vedi coda"), bar)
+            button.clicked.connect(lambda: (bar.close(), self.switchTo(self.progressPage)))
+            bar.addWidget(button)
+            bar.show()
+            return
+        self.switchTo(self.progressPage)
+        self._run_next()
+
+    def _run_next(self) -> None:
+        row = self.progressPage.take_next()
+        if row is None:
+            self.worker = None
+            ok, bad = self.progressPage.finish()
+            self.setWindowTitle(APP_NAME)
+            self._notify(not bad, tr("{n} operazioni non riuscite.", n=bad))
+            return
+        self.worker = JobWorker(row.job, row.keys, self)
         self.worker.logged.connect(self.logPage.append)
         self.worker.progressed.connect(self.progressPage.on_progress)
-        self.worker.itemStatus.connect(self.progressPage.on_status)
-        self.worker.succeeded.connect(lambda: self._finished(True, ""))
-        self.worker.failed.connect(lambda msg: self._finished(False, msg))
-        self.progressPage.start(todo, out_dir)
-        self.gamesPage.set_busy(True)
-        self.switchTo(self.progressPage)
+        self.worker.succeeded.connect(lambda: self._job_done(True, ""))
+        self.worker.failed.connect(lambda msg, cancelled: self._job_done(False, msg, cancelled))
         self.worker.start()
 
+    def _job_done(self, ok: bool, message: str, cancelled: bool = False) -> None:
+        if not ok:
+            self.logPage.append(tr("ERRORE: {message}", message=message))
+        self.progressPage.job_finished(ok, message, cancelled)
+        if self.worker is not None:
+            self.worker.wait()
+        QTimer.singleShot(0, self._run_next)
+
     def _space_ok(self, todo, out_dir: str) -> bool:
-        """Warn before starting when the destination disk is too small."""
+        """Warn before starting when the destination disk is too small (counting what is
+        already waiting in the queue)."""
         os.makedirs(out_dir, exist_ok=True)
-        needed = sum(j.weight for j in todo)
+        needed = sum(j.weight for j in todo) + sum(
+            r.job.weight for r in self.progressPage.waiting() if r.job.kind != "extract")
         free = shutil.disk_usage(out_dir).free
         if free >= needed:
             return True
@@ -241,7 +279,7 @@ class MainWindow(FluentWindow):
         return bool(box.exec())
 
     def _show_fraction(self, frac: float) -> None:
-        running = self.worker is not None and self.worker.isRunning()
+        running = self.progressPage.busy()
         self.setWindowTitle(f"{int(frac * 100)}% · {APP_NAME}" if running and frac < 1
                             else APP_NAME)
 
@@ -270,28 +308,27 @@ class MainWindow(FluentWindow):
         self.activateWindow()
 
     def cancel(self) -> None:
+        """Stop the running job; the queue goes on with the next one."""
         if self.worker and self.worker.isRunning():
             self.worker.cancel()
             self.progressPage.cancelButton.setEnabled(False)
             self.progressPage.stats.setText(tr("Annullamento…"))
 
-    def _finished(self, ok: bool, message: str) -> None:
-        self.setWindowTitle(APP_NAME)
-        self._notify(ok, message)
-        self.progressPage.finish(ok, message)
-        self.gamesPage.set_busy(False)
-        if not ok:
-            self.logPage.append(tr("ERRORE: {message}", message=message))
-
     def closeEvent(self, e):
-        if self.worker and self.worker.isRunning():
+        if self.progressPage.busy():
+            waiting = len(self.progressPage.waiting())
             box = MessageBox(tr("Operazione in corso"),
-                             tr("Vuoi interrompere l'operazione e uscire?"), self)
+                             tr("Vuoi interrompere l'operazione e uscire?") if not waiting else
+                             tr("Vuoi interrompere l'operazione, togliere le {n} in coda e "
+                                "uscire?", n=waiting), self)
             box.yesButton.setText(tr("Interrompi ed esci"))
             box.cancelButton.setText(tr("Continua"))
             if not box.exec():
                 e.ignore()
                 return
-            self.worker.cancel()
-            self.worker.wait(10000)
+            self.progressPage.clear_waiting()
+            if self.worker is not None:
+                self.worker.blockSignals(True)  # no next job: the window is closing
+                self.worker.cancel()
+                self.worker.wait(10000)
         super().closeEvent(e)

@@ -37,6 +37,11 @@ Usa il programma solo con giochi di cui possiedi una copia.
    - **Crea NUP** per ottenere lo stesso, ma nel formato NUP (vedi sotto);
    - **Estrai ExeFS/RomFS** per ottenere le cartelle `exefs` e `romfs`.
 
+Puoi premere i pulsanti anche mentre un'operazione è in corso: le nuove
+richieste si mettono **in coda** e partono da sole. Nella pagina
+**Avanzamento** puoi riordinarle o toglierle; **Annulla** ferma solo quella in
+corso.
+
 In **Impostazioni** puoi scegliere cosa includere nell'XCI e cosa estrarre,
 oltre a tema e lingua.
 
