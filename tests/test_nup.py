@@ -129,6 +129,28 @@ class Nup(unittest.TestCase):
             with self.assertRaises(nup.NupError):
                 b"".join(n.tree(n.packages[0], "romfs")["hello.bin"].chunks())
 
+    def test_standalone_update_is_a_complete_game(self):
+        """Dumps of an installed, updated game come as one standalone update package
+        holding the whole updated game: no "base game missing" warning."""
+        tid = 0x0400D4201C6EA000
+        packages = [nup.NewPackage(nup.KIND_UPDATE, tid, 327680, nup.FLAG_STANDALONE_UPDATE,
+                                   exefs={"main.npdm": MemoryStorage(b"META")},
+                                   romfs={"a.bin": MemoryStorage(b"full game")},
+                                   meta={nup.TLV_TITLE_NAME: b"Tennis"})]
+        path = nup.write_nup(self.p("upd.nup"), packages)
+        (t,) = titles.read_titles(path, None)
+        self.assertTrue(t.complete)
+        self.assertEqual(titles.title_label(t), "Gioco aggiornato")
+        game = titles.group_titles([t])[tid]
+        self.assertEqual(game.warnings(), [])
+        dest = extract.extract(game, self.p("x"), None, log=lambda m: None)
+        self.assertEqual(pathlib.Path(dest, "romfs", "a.bin").read_bytes(), b"full game")
+        (job,) = jobs.nx_jobs([game], self.p("nx"))
+        job.run(None, lambda *a: None, lambda: False, lambda m: None)
+        (back,) = titles.read_titles(job.target, None)
+        self.assertTrue(back.standalone and back.complete)
+        self.assertEqual(titles.group_titles([back])[tid].warnings(), [])
+
     def test_write_roundtrip(self):
         big = os.urandom(3000) * 50 + os.urandom(9000)
         old, nup.SMALL_FILE = nup.SMALL_FILE, 4096   # also exercise the streaming path

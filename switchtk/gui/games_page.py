@@ -38,7 +38,7 @@ class TitleChip(SimpleCardWidget):
         lay.addWidget(StepBadge(number, title.kind == "dlc", self), 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(2)
-        col.addWidget(StrongBodyLabel(titles.kind_label(title.kind), self))
+        col.addWidget(StrongBodyLabel(titles.title_label(title), self))
         if title.kind == "dlc":
             detail = tid_str(title.title_id)
         else:

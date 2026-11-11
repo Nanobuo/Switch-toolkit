@@ -80,6 +80,9 @@ class Core(unittest.TestCase):
         self.assertEqual(len(g.dlcs), 1)
         self.assertEqual([t.kind for t in g.merged()], ["game", "update", "dlc"])
         self.assertEqual(len(g.warnings()), 1)  # two updates: only the latest is used
+        (orphan,) = titles.group_titles(self.load("upd2.nsp")).values()
+        self.assertFalse(orphan.latest_update.complete)  # an NSP update needs its base
+        self.assertIn("Manca il gioco base", orphan.warnings()[0])
 
     def test_nsp_to_xci(self):
         (t,) = self.load("base.nsp")

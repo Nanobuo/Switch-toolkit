@@ -71,7 +71,7 @@ def _cmd_info(args) -> int:
             continue
         with titles.Container(path, ks) as c:
             for t in c.titles():
-                print(f"  {titles.kind_label(t.kind):<16} {tid_str(t.title_id)}  "
+                print(f"  {titles.title_label(t):<16} {tid_str(t.title_id)}  "
                       f"{titles.version_label(t)}  {t.name}")
             if args.files_list:
                 for name, st in c.files.items():
@@ -87,7 +87,7 @@ def _cmd_info(args) -> int:
 
 def _info_nup(path: str, files: bool) -> None:
     for t in titles.nup_titles(path):
-        print(f"  {titles.kind_label(t.kind):<16} {tid_str(t.title_id)}  "
+        print(f"  {titles.title_label(t):<16} {tid_str(t.title_id)}  "
               f"{titles.version_label(t)}  {t.name}")
     if files:
         with nup.NupFile(path) as n:
@@ -100,7 +100,7 @@ def _info_nup(path: str, files: bool) -> None:
 
 def _info_nx(path: str, files: bool) -> None:
     for t in titles.nx_titles(path):
-        print(f"  {titles.kind_label(t.kind):<16} {tid_str(t.title_id)}  "
+        print(f"  {titles.title_label(t):<16} {tid_str(t.title_id)}  "
               f"{titles.version_label(t)}  {t.name}")
     if files:
         with nx.NxArchive(path) as a:

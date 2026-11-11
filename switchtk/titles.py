@@ -119,6 +119,7 @@ class Title:
     nx_snapshot: Optional[int] = None  # Catalog snapshot index, for NX titles
     platform: Optional[int] = None     # NX platform, when the source states it
     group_id: Optional[int] = None     # game it belongs to, when not derivable from its id
+    standalone: bool = False           # update stored without its base (NUP/NX)
 
     @property
     def title_id(self) -> int:
@@ -147,6 +148,13 @@ class Title:
     @property
     def display_version(self) -> str:
         return self.nacp.display_version if self.nacp else ""
+
+    @property
+    def complete(self) -> bool:
+        """An update that is a whole game by itself: every NX snapshot is a complete view,
+        and a NUP standalone update holds the complete updated ExeFS and RomFS."""
+        return self.kind == "update" and (self.container == "nx"
+                                          or (self.container == "nup" and self.standalone))
 
     @property
     def key(self) -> tuple:
@@ -249,6 +257,12 @@ def kind_label(kind: str) -> str:
             "delta": tr("Aggiornamento delta")}.get(kind, kind)
 
 
+def title_label(title: "Title") -> str:
+    if title.kind == "update" and title.standalone and title.complete:
+        return tr("Gioco aggiornato")
+    return kind_label(title.kind)
+
+
 def version_label(title: Title) -> str:
     shown = f"v{title.version}"
     if title.display_version and title.kind != "dlc":
@@ -299,7 +313,7 @@ class Game:
         out = []
         if self.base is None and not self.updates:
             out.append(tr("Contiene solo DLC: per giocarli serve anche il gioco base."))
-        elif self.base is None:
+        elif self.base is None and not self.latest_update.complete:
             out.append(tr("Manca il gioco base: l'XCI conterrà solo aggiornamenti/DLC e "
                           "l'estrazione della RomFS dell'aggiornamento non è possibile."))
         if len(self.updates) > 1:
@@ -378,7 +392,9 @@ def nup_titles(path: str) -> list[Title]:
             kind = NUP_KINDS.get(p.kind)
             if kind is None:
                 continue
-            t = Title(path, "nup", Cnmt(p.title_id, p.version, kind), "", 0, nup_index=p.index)
+            t = Title(path, "nup", Cnmt(p.title_id, p.version, kind), "", 0, nup_index=p.index,
+                      standalone=kind == "update" and (base is None or bool(
+                          p.flags & nup.FLAG_STANDALONE_UPDATE)))
             t.nacp_raw = p.meta.get(nup.TLV_NACP)
             t.nacp = _nup_nacp(p.meta)
             icons = nup.decode_localized(p.meta.get(nup.TLV_LOCALIZED_ICONS, b""))
@@ -414,7 +430,8 @@ def nx_titles(path: str) -> list[Title]:
                     # native DLC: its add-on id is not in the Catalog; keep it distinct
                     tid = app.application_id + 0x1000 + s.index
                 t = Title(path, "nx", Cnmt(tid, s.version, kind), "", 0, nx_snapshot=s.index,
-                          group_id=app.application_id, platform=app.platform)
+                          group_id=app.application_id, platform=app.platform,
+                          standalone=s.kind == nx.SNAP_STANDALONE)
                 m = app.meta_of(s.index)
                 if m is not None:
                     titles = {}

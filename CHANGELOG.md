@@ -5,6 +5,11 @@ Prima di creare una release aggiungi qui una sezione `## vX.Y.Z`.
 
 ## v1.1.1
 
+- Corretto l'avviso «Manca il gioco base» sui NUP che contengono il gioco
+  completo già aggiornato (un solo pacchetto «aggiornamento autonomo», come nei
+  dump di giochi installati): ora compaiono come **Gioco aggiornato**, senza
+  avvisi, e si estraggono e convertono normalmente. Lo stesso vale per gli
+  aggiornamenti autonomi negli archivi NX.
 - Corretto l'avviso «Manca il gioco base» su archivi NX che contengono il
   gioco: i DLC tenuti in un'applicazione separata (ad esempio i pacchetti
   Nintendo Switch 2 Edition) ora vengono uniti al gioco dello stesso file.
